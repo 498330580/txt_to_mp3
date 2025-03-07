@@ -243,4 +243,5 @@ with gr.Blocks(title="小说文本转语音工具") as demo:
         outputs=clean_output
     )
 if __name__ == "__main__":
-    demo.launch()
+    # demo.launch()
+    demo.launch(share=True)

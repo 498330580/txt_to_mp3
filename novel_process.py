@@ -17,36 +17,111 @@ def get_novel_files():
             })
     return novel_files
 
+def detect_encoding(file_path):
+    """检测文件编码"""
+    encodings = ['utf-8', 'gbk', 'gb2312', 'utf-16']
+    for encoding in encodings:
+        try:
+            with open(file_path, 'r', encoding=encoding) as f:
+                f.read()
+            return encoding
+        except UnicodeDecodeError:
+            continue
+    return None
+
+def process_content(content):
+    """处理文本内容"""
+    # 1. 去除空行
+    lines = [line.strip() for line in content.split('\n') if line.strip()]
+    
+    # 2. 清理分隔符行，替换为单个回车
+    cleaned_lines = []
+    punctuation_marks = set('-=*~#@$%^&_+<>.,;:!?/\\|')
+    
+    for line in lines:
+        # 检查是否是分隔符行
+        first_char = line[0]
+        if (first_char in punctuation_marks and 
+            len(line) >= 5 and 
+            all(c == first_char for c in line)):
+            # 遇到分隔符行时添加一个空字符串，join时会转换为单个回车
+            cleaned_lines.append('')
+            continue
+        cleaned_lines.append(line)
+    
+    return cleaned_lines
+
 def split_chapters(content):
     """分割章节内容"""
-    # 使用正则表达式匹配分隔符
-    separators = [r'-+\n', r'\*+\n']
-    # 合并所有分隔符模式
-    pattern = '|'.join(separators)
+    # 处理文本内容（去除空行和分隔符）
+    cleaned_lines = process_content(content)
     
-    # 分割内容
-    chapters = re.split(pattern, content)
-    # 去除空白章节
-    chapters = [ch.strip() for ch in chapters if ch.strip()]
+    # 查找所有章节标题
+    chapters = []
+    current_content = []
+    current_title = None
+    current_number = None
     
-    # 提取章节信息
-    processed_chapters = []
-    for chapter in chapters:
+    for line in cleaned_lines:
         # 查找章节标题
-        match = re.search(r'第\d+章.*?\n', chapter)
+        match = re.search(r'第\d+章.*', line)
         if match:
-            title = match.group().strip()
-            # 提取章节号
-            num_match = re.search(r'第(\d+)章', title)
-            if num_match:
-                chapter_num = int(num_match.group(1))
-                processed_chapters.append({
-                    'number': chapter_num,
-                    'title': title,
-                    'content': chapter.strip()
+            # 如果已有章节内容，保存前一章节
+            if current_title and current_content:
+                chapters.append({
+                    'number': current_number,
+                    'title': current_title,
+                    'content': '\n'.join(current_content)
                 })
+            
+            # 开始新章节
+            current_title = match.group()
+            num_match = re.search(r'第(\d+)章', current_title)
+            current_number = int(num_match.group(1)) if num_match else len(chapters) + 1
+            current_content = [line]
+        else:
+            if current_title:
+                current_content.append(line)
     
-    return processed_chapters
+    # 保存最后一章
+    if current_title and current_content:
+        chapters.append({
+            'number': current_number,
+            'title': current_title,
+            'content': '\n'.join(current_content)
+        })
+    
+    return chapters
+
+def process_novel():
+    """处理小说文件的主函数"""
+    novels = get_novel_files()
+    processed_count = 0
+    
+    for novel in novels:
+        try:
+            # 检测文件编码
+            encoding = detect_encoding(novel['path'])
+            if not encoding:
+                print(f"无法识别文件编码: {novel['name']}")
+                continue
+                
+            # 读取小说内容
+            with open(novel['path'], 'r', encoding=encoding) as f:
+                content = f.read()
+            
+            # 分割章节
+            chapters = split_chapters(content)
+            
+            # 保存章节
+            save_chapters(novel['name'], chapters)
+            processed_count += 1
+            
+        except Exception as e:
+            print(f"处理文件失败 {novel['name']}: {str(e)}")
+            continue
+    
+    return processed_count
 
 def save_chapters(novel_name, chapters):
     """保存分割后的章节"""
@@ -70,19 +145,3 @@ def save_chapters(novel_name, chapters):
         
         with open(filepath, 'w', encoding='utf-8') as f:
             f.write(chapter['content'])
-
-def process_novel():
-    """处理小说文件的主函数"""
-    novels = get_novel_files()
-    for novel in novels:
-        # 读取小说内容
-        with open(novel['path'], 'r', encoding='utf-8') as f:
-            content = f.read()
-        
-        # 分割章节
-        chapters = split_chapters(content)
-        
-        # 保存章节
-        save_chapters(novel['name'], chapters)
-    
-    return len(novels)
