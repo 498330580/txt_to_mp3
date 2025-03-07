@@ -19,30 +19,8 @@ def get_converted_chapters(mp3_dir):
             converted.add(file[:-4])
     return converted
 
-async def text_to_speech(text, output_path, voice, rate, generate_subtitle=False):
-    """将文本转换为语音"""
-    communicate = edge_tts.Communicate(text, voice, rate=rate)
-    
-    # 生成语音文件
-    await communicate.save(output_path)
-    
-    # 如果需要生成字幕，创建同名的srt文件
-    if generate_subtitle:
-        try:
-            # 尝试使用新版本的 srt_stream 方法
-            srt_path = output_path.replace('.mp3', '.srt')
-            async for sub in communicate.srt_stream():
-                with open(srt_path, 'a', encoding='utf-8') as f:
-                    f.write(sub)
-        except AttributeError:
-            # 如果不支持 srt_stream，使用替代方案
-            srt_path = output_path.replace('.mp3', '.srt')
-            with open(srt_path, 'w', encoding='utf-8') as f:
-                f.write('1\n00:00:00,000 --> 99:59:59,999\n{}\n'.format(text))
-
-def process_tts(voice="zh-CN-YunxiNeural", rate="+0%", generate_subtitle="False"):
+def process_tts(voice="zh-CN-YunxiNeural", rate="+0%"):
     """处理语音转换的主函数"""
-    generate_subtitle = generate_subtitle.lower() == "true"
     base_path = get_base_path()
     text_dir = os.path.join(base_path, "data", "out_text")
     converted_count = 0
@@ -83,17 +61,11 @@ def process_tts(voice="zh-CN-YunxiNeural", rate="+0%", generate_subtitle="False"
                     try:
                         # 转换语音到临时文件
                         print(f"正在转换: {mp3_filename}")
-                        asyncio.run(text_to_speech(text, tmp_path, voice, rate, generate_subtitle))
+                        asyncio.run(text_to_speech(text, tmp_path, voice, rate))
                         
                         # 转换成功后移动到最终目录
                         if os.path.exists(tmp_path):
                             shutil.move(tmp_path, final_path)
-                            # 如果生成了字幕文件，也需要移动
-                            if generate_subtitle:
-                                srt_tmp_path = tmp_path.replace('.mp3', '.srt')
-                                srt_final_path = final_path.replace('.mp3', '.srt')
-                                if os.path.exists(srt_tmp_path):
-                                    shutil.move(srt_tmp_path, srt_final_path)
                             converted_count += 1
                             print(f"已完成: {mp3_filename}")
                     except Exception as e:
@@ -109,6 +81,11 @@ def process_tts(voice="zh-CN-YunxiNeural", rate="+0%", generate_subtitle="False"
                 print(f"清理临时目录失败: {str(e)}")
     
     return converted_count
+
+async def text_to_speech(text, output_path, voice, rate):
+    """将文本转换为语音"""
+    communicate = edge_tts.Communicate(text, voice, rate=rate)
+    await communicate.save(output_path)
 
 def get_chinese_voices():
     """获取中文语音列表"""
@@ -128,11 +105,10 @@ if __name__ == "__main__":
     # 获取命令行参数
     voice = sys.argv[1]
     rate = sys.argv[2]
-    generate_subtitle = sys.argv[3] if len(sys.argv) > 3 else "False"
     
     try:
         # 直接执行转换
-        count = process_tts(voice, rate, generate_subtitle)
+        count = process_tts(voice, rate)
         print(f"转换完成，共转换 {count} 个章节")
     except Exception as e:
         print(f"转换失败: {str(e)}")
