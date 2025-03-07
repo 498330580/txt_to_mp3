@@ -61,11 +61,20 @@ def split_chapters(content):
     current_content = []
     current_title = None
     current_number = None
+    intro_content = []
     
     for line in cleaned_lines:
         # 查找章节标题
         match = re.search(r'第\d+章.*', line)
         if match:
+            # 如果有内容简介，先保存为第一章
+            if intro_content and not chapters:
+                chapters.append({
+                    'number': 0,
+                    'title': '内容简介',
+                    'content': '\n'.join(intro_content)
+                })
+            
             # 如果已有章节内容，保存前一章节
             if current_title and current_content:
                 chapters.append({
@@ -80,7 +89,11 @@ def split_chapters(content):
             current_number = int(num_match.group(1)) if num_match else len(chapters) + 1
             current_content = [line]
         else:
-            if current_title:
+            # 如果还没遇到第一个章节标题，就是内容简介
+            if not current_title:
+                if line.strip():  # 只添加非空行
+                    intro_content.append(line)
+            else:
                 current_content.append(line)
     
     # 保存最后一章
