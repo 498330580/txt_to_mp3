@@ -1,5 +1,6 @@
 import os
 import re
+from ollama_api import is_chapter_title, extract_chapter_info
 
 def get_base_path():
     """获取项目基础路径"""
@@ -51,58 +52,68 @@ def process_content(content):
     
     return cleaned_lines
 
+def identify_potential_titles(lines):
+    """识别可能的章节标题行"""
+    potential_titles = []
+    for i, line in enumerate(lines):
+        # 清理空格
+        cleaned_line = line.strip()
+        # 检查长度是否小于15个字
+        if len(cleaned_line) > 0 and len(cleaned_line) <= 15:
+            potential_titles.append((i, cleaned_line))
+    return potential_titles
+
 def split_chapters(content):
     """分割章节内容"""
     # 处理文本内容（去除空行和分隔符）
     cleaned_lines = process_content(content)
     
-    # 查找所有章节标题
+    # 识别可能的章节标题
+    potential_titles = identify_potential_titles(cleaned_lines)
+    
+    # 使用 AI 识别真实的章节标题
+    chapter_positions = []
+    for pos, title in potential_titles:
+        if is_chapter_title(title):
+            chapter_info = extract_chapter_info(title)
+            chapter_positions.append({
+                'position': pos,
+                'number': chapter_info['number'],
+                'title': chapter_info['title']
+            })
+    
+    # 分割章节
     chapters = []
     current_content = []
-    current_title = None
-    current_number = None
-    intro_content = []
     
-    for line in cleaned_lines:
-        # 查找章节标题
-        match = re.search(r'第\d+章.*', line)
-        if match:
-            # 如果有内容简介，先保存为第一章
-            if intro_content and not chapters:
-                chapters.append({
-                    'number': 0,
-                    'title': '内容简介',
-                    'content': '\n'.join(intro_content)
-                })
-            
-            # 如果已有章节内容，保存前一章节
-            if current_title and current_content:
-                chapters.append({
-                    'number': current_number,
-                    'title': current_title,
-                    'content': '\n'.join(current_content)
-                })
-            
-            # 开始新章节
-            current_title = match.group()
-            num_match = re.search(r'第(\d+)章', current_title)
-            current_number = int(num_match.group(1)) if num_match else len(chapters) + 1
-            current_content = [line]
-        else:
-            # 如果还没遇到第一个章节标题，就是内容简介
-            if not current_title:
-                if line.strip():  # 只添加非空行
-                    intro_content.append(line)
-            else:
-                current_content.append(line)
+    # 处理内容简介
+    if chapter_positions and chapter_positions[0]['position'] > 0:
+        intro_content = cleaned_lines[:chapter_positions[0]['position']]
+        if intro_content:
+            chapters.append({
+                'number': 0,
+                'title': '内容简介',
+                'content': '\n'.join(intro_content)
+            })
     
-    # 保存最后一章
-    if current_title and current_content:
-        chapters.append({
-            'number': current_number,
-            'title': current_title,
-            'content': '\n'.join(current_content)
-        })
+    # 处理各个章节
+    for i, chapter_pos in enumerate(chapter_positions):
+        # 如果不是第一个章节，保存前一章节的内容
+        if i > 0:
+            prev_pos = chapter_positions[i-1]['position']
+            chapters.append({
+                'number': chapter_positions[i-1]['number'],
+                'title': chapter_positions[i-1]['title'],
+                'content': '\n'.join(cleaned_lines[prev_pos:chapter_pos['position']])
+            })
+        
+        # 如果是最后一个章节
+        if i == len(chapter_positions) - 1:
+            chapters.append({
+                'number': chapter_pos['number'],
+                'title': chapter_pos['title'],
+                'content': '\n'.join(cleaned_lines[chapter_pos['position']:])
+            })
     
     return chapters
 
