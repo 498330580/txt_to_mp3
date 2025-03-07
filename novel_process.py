@@ -51,6 +51,48 @@ def process_content(content):
     
     return cleaned_lines
 
+def get_chapter_info(line):
+    """识别章节标题和章节号"""
+    # 匹配不同格式的章节标题
+    patterns = [
+        (r'第([0-9零一二三四五六七八九十百千万]+)章.*', '数字/中文数字'),
+        (r'第([壹贰叁肆伍陆柒捌玖拾佰仟萬]+)章.*', '繁体数字'),
+        (r'^(\d+)[\s\.、]+.*', '纯数字'),
+        (r'^(\d+)章.*', '数字+章'),
+    ]
+    
+    for pattern, type in patterns:
+        match = re.search(pattern, line)
+        if match:
+            number_str = match.group(1)
+            if type == '数字/中文数字':
+                # 处理中文数字
+                chinese_nums = {'零':0, '一':1, '二':2, '三':3, '四':4, '五':5, 
+                              '六':6, '七':7, '八':8, '九':9, '十':10}
+                if number_str in chinese_nums:
+                    number = chinese_nums[number_str]
+                else:
+                    try:
+                        number = int(number_str)
+                    except ValueError:
+                        # 处理复杂的中文数字（如：二十一）
+                        number = sum(chinese_nums.get(c, 0) for c in number_str)
+            elif type == '繁体数字':
+                # 处理繁体数字
+                traditional_nums = {'壹':1, '贰':2, '叁':3, '肆':4, '伍':5,
+                                 '陆':6, '柒':7, '捌':8, '玖':9, '拾':10}
+                if number_str in traditional_nums:
+                    number = traditional_nums[number_str]
+                else:
+                    number = sum(traditional_nums.get(c, 0) for c in number_str)
+            else:
+                # 处理纯数字格式
+                number = int(number_str)
+            
+            return number, line
+    
+    return None, None
+
 def split_chapters(content):
     """分割章节内容"""
     # 处理文本内容（去除空行和分隔符）
@@ -65,8 +107,8 @@ def split_chapters(content):
     
     for line in cleaned_lines:
         # 查找章节标题
-        match = re.search(r'第\d+章.*', line)
-        if match:
+        number, title = get_chapter_info(line)
+        if number is not None:
             # 如果有内容简介，先保存为第一章
             if intro_content and not chapters:
                 chapters.append({
@@ -84,9 +126,8 @@ def split_chapters(content):
                 })
             
             # 开始新章节
-            current_title = match.group()
-            num_match = re.search(r'第(\d+)章', current_title)
-            current_number = int(num_match.group(1)) if num_match else len(chapters) + 1
+            current_title = title
+            current_number = number
             current_content = [line]
         else:
             # 如果还没遇到第一个章节标题，就是内容简介
