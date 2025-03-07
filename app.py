@@ -64,17 +64,16 @@ def count_total_chapters():
 conversion_progress = 0
 total_chapters = 0
 # 删除 update_progress 函数
-def convert_to_speech(voice, rate):
+def convert_to_speech(voice, rate, generate_subtitle):
     """转换语音"""
     global conversion_process
     try:
         # 启动新进程执行转换，显示控制台输出
         import subprocess
-        cmd = f'python tts_process.py "{voice}" "{format_rate(rate)}"'
+        cmd = f'python tts_process.py "{voice}" "{format_rate(rate)}" "{str(generate_subtitle)}"'
         conversion_process = subprocess.Popen(
             cmd, 
             shell=True,
-            # 不重定向输出，让其显示在控制台
             stdout=None,
             stderr=None
         )
@@ -163,6 +162,10 @@ with gr.Blocks(title="小说文本转语音工具") as demo:
             step=10,
             label="语速调节（%）"
         )
+        subtitle_checkbox = gr.Checkbox(
+            label="输出字幕文件",
+            value=False
+        )
     
     # 步骤1：上传文件
     with gr.Group():
@@ -221,7 +224,7 @@ with gr.Blocks(title="小说文本转语音工具") as demo:
     
     convert_btn.click(
         fn=convert_to_speech,
-        inputs=[voice_dropdown, rate_slider],
+        inputs=[voice_dropdown, rate_slider, subtitle_checkbox],
         outputs=convert_output
     )
     
@@ -244,4 +247,4 @@ with gr.Blocks(title="小说文本转语音工具") as demo:
     )
 if __name__ == "__main__":
     # demo.launch()
-    demo.launch(share=True)
+    demo.launch(share=False)
