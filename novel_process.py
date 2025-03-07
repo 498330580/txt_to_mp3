@@ -61,7 +61,8 @@ def save_chapters(novel_name, chapters):
     for chapter in chapters:
         # 清理文件名中的非法字符
         title = re.sub(r'[<>:"/\\|?*]', '_', chapter['title'])
-        filename = f"{chapter['number']}.{title}.txt"
+        # 使用五位数字格式化章节号
+        filename = f"{chapter['number']:05d}.{title}.txt"
         filepath = os.path.join(output_dir, filename)
         
         # 确保父目录存在

@@ -2,6 +2,7 @@ import os
 import re
 import asyncio
 import edge_tts
+import shutil  # 添加 shutil 模块导入
 
 def get_base_path():
     """获取项目基础路径"""
@@ -27,9 +28,11 @@ def process_tts(voice="zh-CN-YunxiNeural", rate="+0%"):
     for novel_dir in os.listdir(text_dir):
         novel_path = os.path.join(text_dir, novel_dir)
         if os.path.isdir(novel_path):
-            # 创建对应的MP3输出目录
+            # 创建对应的MP3输出目录和临时目录
             mp3_dir = os.path.join(base_path, "data", "out_mp3", novel_dir)
+            tmp_dir = os.path.join(mp3_dir, "tmp")
             os.makedirs(mp3_dir, exist_ok=True)
+            os.makedirs(tmp_dir, exist_ok=True)
             
             # 获取已转换的章节列表
             converted_chapters = get_converted_chapters(mp3_dir)
@@ -48,18 +51,34 @@ def process_tts(voice="zh-CN-YunxiNeural", rate="+0%"):
                     with open(text_path, 'r', encoding='utf-8') as f:
                         text = f.read()
                     
-                    # 设置输出路径
+                    # 设置临时输出路径和最终输出路径
+                    # 保持与输入文件相同的五位数字格式
                     mp3_filename = chapter_file.replace('.txt', '.mp3')
                     mp3_filename = re.sub(r'[<>:"/\\|?*]', '_', mp3_filename)
-                    mp3_path = os.path.join(mp3_dir, mp3_filename)
+                    tmp_path = os.path.join(tmp_dir, mp3_filename)
+                    final_path = os.path.join(mp3_dir, mp3_filename)
                     
                     try:
-                        # 转换语音
-                        asyncio.run(text_to_speech(text, mp3_path, voice, rate))
-                        converted_count += 1
-                        print(f"已转换: {mp3_filename}")
+                        # 转换语音到临时文件
+                        print(f"正在转换: {mp3_filename}")
+                        asyncio.run(text_to_speech(text, tmp_path, voice, rate))
+                        
+                        # 转换成功后移动到最终目录
+                        if os.path.exists(tmp_path):
+                            shutil.move(tmp_path, final_path)
+                            converted_count += 1
+                            print(f"已完成: {mp3_filename}")
                     except Exception as e:
                         print(f"转换失败: {mp3_filename}, 错误: {str(e)}")
+                        # 清理可能存在的临时文件
+                        if os.path.exists(tmp_path):
+                            os.remove(tmp_path)
+            
+            # 清理临时目录
+            try:
+                shutil.rmtree(tmp_dir)
+            except Exception as e:
+                print(f"清理临时目录失败: {str(e)}")
     
     return converted_count
 
