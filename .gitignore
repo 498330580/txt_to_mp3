@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.venv/
+venv/
+
+# 项目特定文件
+data/import/*
+data/out_text/*
+data/out_mp3/*
+output.zip
+
+# 保留 data 目录结构
+!data/import/.gitkeep
+!data/out_text/.gitkeep
+!data/out_mp3/.gitkeep
