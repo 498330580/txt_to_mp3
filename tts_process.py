@@ -19,68 +19,95 @@ def get_converted_chapters(mp3_dir):
             converted.add(file[:-4])
     return converted
 
-def process_tts(voice="zh-CN-YunxiNeural", rate="+0%"):
-    """处理语音转换的主函数"""
+def count_converted_chapters():
+    """统计已转换的章节总数"""
     base_path = get_base_path()
-    text_dir = os.path.join(base_path, "data", "out_text")
-    converted_count = 0
+    mp3_dir = os.path.join(base_path, "data", "out_mp3")
+    count = 0
     
-    for novel_dir in os.listdir(text_dir):
-        novel_path = os.path.join(text_dir, novel_dir)
-        if os.path.isdir(novel_path):
-            # 创建对应的MP3输出目录和临时目录
-            mp3_dir = os.path.join(base_path, "data", "out_mp3", novel_dir)
-            tmp_dir = os.path.join(mp3_dir, "tmp")
-            os.makedirs(mp3_dir, exist_ok=True)
-            os.makedirs(tmp_dir, exist_ok=True)
-            
-            # 获取已转换的章节列表
-            converted_chapters = get_converted_chapters(mp3_dir)
-            
-            # 处理每个章节
-            for chapter_file in os.listdir(novel_path):
-                if chapter_file.endswith('.txt'):
-                    # 检查是否已转换
-                    chapter_name = chapter_file[:-4]
-                    if chapter_name in converted_chapters:
-                        print(f"跳过已转换章节: {chapter_file}")
-                        continue
-                    
-                    # 读取文本内容
-                    text_path = os.path.join(novel_path, chapter_file)
-                    with open(text_path, 'r', encoding='utf-8') as f:
-                        text = f.read()
-                    
-                    # 设置临时输出路径和最终输出路径
-                    # 保持与输入文件相同的五位数字格式
-                    mp3_filename = chapter_file.replace('.txt', '.mp3')
-                    mp3_filename = re.sub(r'[<>:"/\\|?*]', '_', mp3_filename)
-                    tmp_path = os.path.join(tmp_dir, mp3_filename)
-                    final_path = os.path.join(mp3_dir, mp3_filename)
-                    
-                    try:
-                        # 转换语音到临时文件
-                        print(f"正在转换: {mp3_filename}")
-                        asyncio.run(text_to_speech(text, tmp_path, voice, rate))
+    if os.path.exists(mp3_dir):
+        for novel_dir in os.listdir(mp3_dir):
+            novel_path = os.path.join(mp3_dir, novel_dir)
+            if os.path.isdir(novel_path):
+                count += len([f for f in os.listdir(novel_path) if f.endswith('.mp3')])
+    
+    return count
+
+def process_tts(voice="zh-CN-YunxiNeural", rate="+0%", total_chapters=0):
+    """处理语音转换的主函数"""
+    while True:
+        converted_count = 0
+        base_path = get_base_path()
+        text_dir = os.path.join(base_path, "data", "out_text")
+        
+        # 处理所有小说目录
+        for novel_dir in os.listdir(text_dir):
+            novel_path = os.path.join(text_dir, novel_dir)
+            if os.path.isdir(novel_path):
+                # 创建对应的MP3输出目录和临时目录
+                mp3_dir = os.path.join(base_path, "data", "out_mp3", novel_dir)
+                tmp_dir = os.path.join(mp3_dir, "tmp")
+                os.makedirs(mp3_dir, exist_ok=True)
+                os.makedirs(tmp_dir, exist_ok=True)
+                
+                # 获取已转换的章节列表
+                converted_chapters = get_converted_chapters(mp3_dir)
+                
+                # 处理每个章节
+                for chapter_file in os.listdir(novel_path):
+                    if chapter_file.endswith('.txt'):
+                        # 检查是否已转换
+                        chapter_name = chapter_file[:-4]
+                        if chapter_name in converted_chapters:
+                            print(f"跳过已转换章节: {chapter_file}")
+                            continue
                         
-                        # 转换成功后移动到最终目录
-                        if os.path.exists(tmp_path):
-                            shutil.move(tmp_path, final_path)
-                            converted_count += 1
-                            print(f"已完成: {mp3_filename}")
+                        # 读取文本内容
+                        text_path = os.path.join(novel_path, chapter_file)
+                        with open(text_path, 'r', encoding='utf-8') as f:
+                            text = f.read()
+                        
+                        # 设置临时输出路径和最终输出路径
+                        # 保持与输入文件相同的五位数字格式
+                        mp3_filename = chapter_file.replace('.txt', '.mp3')
+                        mp3_filename = re.sub(r'[<>:"/\\|?*]', '_', mp3_filename)
+                        tmp_path = os.path.join(tmp_dir, mp3_filename)
+                        final_path = os.path.join(mp3_dir, mp3_filename)
+                        
+                        try:
+                            # 转换语音到临时文件
+                            print(f"正在转换: {mp3_filename}")
+                            asyncio.run(text_to_speech(text, tmp_path, voice, rate))
+                            
+                            # 转换成功后移动到最终目录
+                            if os.path.exists(tmp_path):
+                                shutil.move(tmp_path, final_path)
+                                converted_count += 1
+                                print(f"已完成: {mp3_filename}")
+                        except Exception as e:
+                            print(f"转换失败: {mp3_filename}, 错误: {str(e)}")
+                            # 清理可能存在的临时文件
+                            if os.path.exists(tmp_path):
+                                os.remove(tmp_path)
+                    
+                    # 清理临时目录
+                    try:
+                        shutil.rmtree(tmp_dir)
                     except Exception as e:
-                        print(f"转换失败: {mp3_filename}, 错误: {str(e)}")
-                        # 清理可能存在的临时文件
-                        if os.path.exists(tmp_path):
-                            os.remove(tmp_path)
-            
-            # 清理临时目录
-            try:
-                shutil.rmtree(tmp_dir)
-            except Exception as e:
-                print(f"清理临时目录失败: {str(e)}")
+                        print(f"清理临时目录失败: {str(e)}")
+        
+        # 所有章节处理完成后，检查是否有遗漏的章节
+        total_converted = count_converted_chapters()
+        print(f"本轮转换完成，已转换 {total_converted}/{total_chapters} 章节")
+        
+        if total_chapters > 0 and total_converted < total_chapters:
+            print("检测到有未转换的章节，开始新一轮转换...")
+            continue
+        else:
+            print(f"所有章节均已转换完成，共 {total_converted} 章节")
+            break
     
-    return converted_count
+    return total_converted
 
 async def text_to_speech(text, output_path, voice, rate):
     """将文本转换为语音"""
@@ -105,10 +132,11 @@ if __name__ == "__main__":
     # 获取命令行参数
     voice = sys.argv[1]
     rate = sys.argv[2]
+    total_chapters = int(sys.argv[3]) if len(sys.argv) > 3 else 0
     
     try:
-        # 直接执行转换
-        count = process_tts(voice, rate)
+        # 执行转换直到所有章节都完成
+        count = process_tts(voice, rate, total_chapters)
         print(f"转换完成，共转换 {count} 个章节")
     except Exception as e:
         print(f"转换失败: {str(e)}")

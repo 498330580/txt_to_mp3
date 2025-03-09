@@ -60,21 +60,19 @@ def count_total_chapters():
                 count += len([f for f in os.listdir(novel_path) if f.endswith('.txt')])
     
     return count
-# 删除全局变量 conversion_running
-conversion_progress = 0
-total_chapters = 0
-# 删除 update_progress 函数
+
 def convert_to_speech(voice, rate):
     """转换语音"""
     global conversion_process
     try:
         # 启动新进程执行转换，显示控制台输出
         import subprocess
-        cmd = f'python tts_process.py "{voice}" "{format_rate(rate)}"'
+        # 获取总章节数作为参数传递
+        total_chapters = count_total_chapters()
+        cmd = f'python tts_process.py "{voice}" "{format_rate(rate)}" {total_chapters}'
         conversion_process = subprocess.Popen(
             cmd, 
             shell=True,
-            # 不重定向输出，让其显示在控制台
             stdout=None,
             stderr=None
         )
