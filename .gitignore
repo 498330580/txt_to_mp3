@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 .env
 .venv/
+.gradio/
 venv/
 
 # 项目特定文件
