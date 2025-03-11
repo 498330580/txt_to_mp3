@@ -144,6 +144,55 @@ def clean_files():
     
     print("已清理所有文件")
     return "文件清理完成"
+
+def list_files(directory):
+    """列出指定目录下的文件"""
+    files = []
+    if os.path.exists(directory):
+        files = [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))]
+    return files
+
+def delete_file(directory, filename):
+    """删除指定目录下的文件"""
+    try:
+        file_path = os.path.join(directory, filename)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            return f"已删除文件: {filename}"
+        return f"文件不存在: {filename}"
+    except Exception as e:
+        return f"删除文件失败: {str(e)}"
+def update_import_files():
+    """更新导入文件列表"""
+    files = list_files(os.path.join(get_base_path(), "data", "import"))
+    return [[f, "删除"] for f in files]
+
+def update_text_files():
+    """更新文本文件列表"""
+    base_path = get_base_path()
+    text_dir = os.path.join(base_path, "data", "out_text")
+    result = []
+    if os.path.exists(text_dir):
+        for novel_dir in os.listdir(text_dir):
+            novel_path = os.path.join(text_dir, novel_dir)
+            if os.path.isdir(novel_path):
+                chapter_count = len([f for f in os.listdir(novel_path) if f.endswith('.txt')])
+                result.append([novel_dir, chapter_count, "删除"])
+    return result
+
+def update_mp3_files():
+    """更新MP3文件列表"""
+    base_path = get_base_path()
+    mp3_dir = os.path.join(base_path, "data", "out_mp3")
+    result = []
+    if os.path.exists(mp3_dir):
+        for novel_dir in os.listdir(mp3_dir):
+            novel_path = os.path.join(mp3_dir, novel_dir)
+            if os.path.isdir(novel_path):
+                chapter_count = len([f for f in os.listdir(novel_path) if f.endswith('.mp3')])
+                result.append([novel_dir, chapter_count, "删除"])
+    return result
+
 # 创建Gradio界面
 with gr.Blocks(title="小说文本转语音工具") as demo:
     gr.Markdown("# 小说文本转语音工具")
@@ -171,7 +220,14 @@ with gr.Blocks(title="小说文本转语音工具") as demo:
                 file_types=[".txt"],
                 type="filepath"
             )
-            upload_btn = gr.Button("上传文件", variant="primary")
+            with gr.Row():
+                upload_btn = gr.Button("上传文件", variant="primary")
+                refresh_import_btn = gr.Button("刷新文件列表", variant="secondary")
+            import_files = gr.Dataframe(
+                headers=["文件名", "操作"],
+                datatype=["str", "str"],
+                label="已上传文件列表"
+            )
             upload_output = gr.Textbox(label="上传结果")
     
     # 步骤2：处理章节
@@ -179,6 +235,13 @@ with gr.Blocks(title="小说文本转语音工具") as demo:
         gr.Markdown("## 步骤2：处理小说分章节")
         with gr.Column():
             process_btn = gr.Button("开始处理章节", variant="primary")
+            with gr.Row():
+                refresh_text_btn = gr.Button("刷新文件列表", variant="secondary")
+            text_files = gr.Dataframe(
+                headers=["小说", "章节数", "操作"],
+                datatype=["str", "number", "str"],
+                label="已处理章节列表"
+            )
             process_output = gr.Textbox(label="处理结果")
     
     # 步骤3：转换语音
@@ -188,6 +251,13 @@ with gr.Blocks(title="小说文本转语音工具") as demo:
             with gr.Row():
                 convert_btn = gr.Button("开始转换语音", variant="primary")
                 stop_btn = gr.Button("停止转换", variant="secondary")
+            with gr.Row():
+                refresh_mp3_btn = gr.Button("刷新文件列表", variant="secondary")
+            mp3_files = gr.Dataframe(
+                headers=["小说", "已转换章节数", "操作"],
+                datatype=["str", "number", "str"],
+                label="转换进度列表"
+            )
             convert_output = gr.Textbox(label="转换结果")
     
     # 步骤4：打包下载
@@ -209,18 +279,42 @@ with gr.Blocks(title="小说文本转语音工具") as demo:
         fn=save_uploaded_file,
         inputs=[file_input],
         outputs=upload_output
+    ).then(
+        fn=update_import_files,
+        outputs=import_files
+    )
+    
+    refresh_import_btn.click(
+        fn=update_import_files,
+        outputs=import_files
     )
     
     process_btn.click(
         fn=process_chapters,
         inputs=[],
         outputs=process_output
+    ).then(
+        fn=update_text_files,
+        outputs=text_files
+    )
+    
+    refresh_text_btn.click(
+        fn=update_text_files,
+        outputs=text_files
     )
     
     convert_btn.click(
         fn=convert_to_speech,
         inputs=[voice_dropdown, rate_slider],
         outputs=convert_output
+    ).then(
+        fn=update_mp3_files,
+        outputs=mp3_files
+    )
+    
+    refresh_mp3_btn.click(
+        fn=update_mp3_files,
+        outputs=mp3_files
     )
     
     stop_btn.click(
@@ -241,5 +335,4 @@ with gr.Blocks(title="小说文本转语音工具") as demo:
         outputs=clean_output
     )
 if __name__ == "__main__":
-    # demo.launch()
     demo.launch(share=False)
