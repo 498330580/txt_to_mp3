@@ -54,7 +54,10 @@ txt_to_mp3/
 
 ## 使用方法
 
-### 1. 环境准备
+### 方式一：本地运行
+
+#### 1. 环境准备
+
 1. 安装 Python
    
    - 下载并安装 Python 3.8 或更高版本
@@ -64,19 +67,50 @@ txt_to_mp3/
 pip install -r requirements.txt
  ```
 
-### 2. 使用步骤
+3. 运行程序
+```bash
+python app.py
+```
+
+### 方式二：docker运行
+
+#### 1. 环境准备
+
+1. 安装 Docker
+2. 拉取镜像
+```bash
+docker pull 498330580/txt_to_mp3:latest
+```
+3. 运行容器
+```bash
+docker run -d \
+  --name txt_to_mp3 \
+  -p 7860:7860 \
+  -v %cd%/data/import:/app/data/import \
+  -v %cd%/data/out_text:/app/data/out_text \
+  -v %cd%/data/out_mp3:/app/data/out_mp3 \
+  -v %cd%/data/tmp:/app/data/tmp \
+  498330580/txt_to_mp3:latest
+```
+4. 访问界面
+    - 打开浏览器访问 http://localhost:7860
+5. 停止容器
+```bash
+docker stop txt_to_mp3
+```
+6. 删除容器
+```bash
+docker rm txt_to_mp3
+```
+
+### 使用步骤
 
 1. 准备小说文件
     - 将小说文本文件(.txt格式)放入 data/import 目录
     - 支持的文件编码：UTF-8、GBK、GB2312、UTF-16
     - 建议使用 UTF-8 编码以获得最佳兼容性
 
-2. 运行程序
-```bash
-python app.py
-```
-
-3. 使用界面
+2. 使用界面
     - 步骤1：上传小说文件
         - 点击"上传文件"按钮选择小说文件
         - 支持批量上传多个文件
