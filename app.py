@@ -89,8 +89,7 @@ def stop_conversion():
             print("正在停止转换进程...")
             # 在 Windows 上使用 taskkill 强制终止进程及其子进程
             import subprocess
-            subprocess.run(['taskkill', '/F', '/T', '/PID', str(conversion_process.pid)], 
-                         capture_output=True)
+            subprocess.run(['taskkill', '/F', '/T', '/PID', str(conversion_process.pid)], capture_output=True)
             conversion_process = None
             print("转换进程已停止")
             return "已停止转换进程"
@@ -105,6 +104,7 @@ def stop_conversion():
     except Exception as e:
         print(f"转换过程出错: {str(e)}")
         return f"转换过程出错: {str(e)}"
+
 # 删除 stop_conversion 函数
 def package_audio():
     """打包音频文件"""
@@ -152,16 +152,6 @@ def list_files(directory):
         files = [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))]
     return files
 
-def delete_file(directory, filename):
-    """删除指定目录下的文件"""
-    try:
-        file_path = os.path.join(directory, filename)
-        if os.path.exists(file_path):
-            os.remove(file_path)
-            return f"已删除文件: {filename}"
-        return f"文件不存在: {filename}"
-    except Exception as e:
-        return f"删除文件失败: {str(e)}"
 def update_import_files():
     """更新导入文件列表"""
     files = list_files(os.path.join(get_base_path(), "data", "import"))
@@ -193,6 +183,66 @@ def update_mp3_files():
                 result.append([novel_dir, chapter_count, "删除"])
     return result
 
+def delete_import_file(evt: gr.SelectData):
+    """删除导入的文件"""
+    try:
+        # 获取点击的行索引和列索引
+        row_idx = evt.index[0]  # 获取行索引
+        col_idx = evt.index[1]  # 获取列索引
+        
+        # 确保是点击删除按钮（第二列）
+        if col_idx == 1 and evt.value == "删除":
+            # 从数据框中获取当前文件列表
+            current_files = list_files(os.path.join(get_base_path(), "data", "import"))
+            if row_idx < len(current_files):
+                file_name = current_files[row_idx]
+                file_path = os.path.join(get_base_path(), "data", "import", file_name)
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                    print(f"已删除文件: {file_name}")
+                    return "文件删除成功", update_import_files()
+                else:
+                    return f"文件不存在: {file_name}", update_import_files()
+    except Exception as e:
+        print(f"删除文件失败: {str(e)}")
+        return f"删除文件失败: {str(e)}", update_import_files()
+    return "", update_import_files()
+
+def delete_novel_folder(evt: gr.SelectData, folder_type):
+    """删除小说文件夹"""
+    try:
+        # 获取点击的行索引和列索引
+        row_idx = evt.index[0]  # 获取行索引
+        col_idx = evt.index[1]  # 获取列索引
+        
+        # 确保是点击删除按钮（第三列）
+        if col_idx == 2 and evt.value == "删除":
+            # 获取当前文件夹列表
+            if folder_type == "text":
+                current_folders = [d for d in os.listdir(os.path.join(get_base_path(), "data", "out_text")) 
+                                 if os.path.isdir(os.path.join(get_base_path(), "data", "out_text", d))]
+            else:
+                current_folders = [d for d in os.listdir(os.path.join(get_base_path(), "data", "out_mp3")) 
+                                 if os.path.isdir(os.path.join(get_base_path(), "data", "out_mp3", d))]
+            
+            if row_idx < len(current_folders):
+                folder_name = current_folders[row_idx]
+                if folder_type == "text":
+                    folder_path = os.path.join(get_base_path(), "data", "out_text", folder_name)
+                else:
+                    folder_path = os.path.join(get_base_path(), "data", "out_mp3", folder_name)
+                
+                if os.path.exists(folder_path):
+                    shutil.rmtree(folder_path)
+                    print(f"已删除文件夹: {folder_name}")
+                    return "文件夹删除成功", (update_text_files() if folder_type == "text" else update_mp3_files())
+                else:
+                    return f"文件夹不存在: {folder_name}", (update_text_files() if folder_type == "text" else update_mp3_files())
+    except Exception as e:
+        print(f"删除文件夹失败: {str(e)}")
+        return f"删除文件夹失败: {str(e)}", (update_text_files() if folder_type == "text" else update_mp3_files())
+    return "", (update_text_files() if folder_type == "text" else update_mp3_files())
+
 # 创建Gradio界面
 with gr.Blocks(title="小说文本转语音工具") as demo:
     gr.Markdown("# 小说文本转语音工具")
@@ -206,7 +256,7 @@ with gr.Blocks(title="小说文本转语音工具") as demo:
         rate_slider = gr.Slider(
             minimum=-50,
             maximum=50,
-            value=0,
+            value=10,
             step=10,
             label="语速调节（%）"
         )
@@ -334,5 +384,24 @@ with gr.Blocks(title="小说文本转语音工具") as demo:
         inputs=[],
         outputs=clean_output
     )
+
+    # 修改事件绑定部分
+    import_files.select(
+        fn=delete_import_file,
+        outputs=[upload_output, import_files]
+    )
+    
+    text_files.select(
+        fn=delete_novel_folder,
+        inputs=gr.State("text"),  # 使用 gr.State 传递固定参数
+        outputs=[process_output, text_files]
+    )
+    
+    mp3_files.select(
+        fn=delete_novel_folder,
+        inputs=gr.State("mp3"),  # 使用 gr.State 传递固定参数
+        outputs=[convert_output, mp3_files]
+    )
+
 if __name__ == "__main__":
     demo.launch(share=False)
