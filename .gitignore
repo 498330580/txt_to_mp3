@@ -11,6 +11,8 @@ venv/
 data/import/*
 data/out_text/*
 data/out_mp3/*
+data/out_mp4/*
+data/images/*
 data/tmp/*
 *.zip
 
@@ -18,4 +20,6 @@ data/tmp/*
 !data/import/.gitkeep
 !data/out_text/.gitkeep
 !data/out_mp3/.gitkeep
+!data/out_mp4/.gitkeep
+!data/images/.gitkeep
 !data/tmp/.gitkeep
