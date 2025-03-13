@@ -25,26 +25,17 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
+        pip install pyinstaller
         
-    - name: Create Release Package
+    - name: Create Executable
       run: |
-        mkdir txt_to_mp3_release
-        xcopy /E /I txt_mp3_python txt_to_mp3_release\txt_mp3_python
-        copy app.py txt_to_mp3_release\
-        copy novel_process.py txt_to_mp3_release\
-        copy tts_process.py txt_to_mp3_release\
-        copy win_run.bat txt_to_mp3_release\
-        copy requirements.txt txt_to_mp3_release\
-        copy README.md txt_to_mp3_release\
-        copy LICENSE txt_to_mp3_release\
-        copy VERSION txt_to_mp3_release\
-        xcopy /E /I data txt_to_mp3_release\data
-        powershell Compress-Archive -Path txt_to_mp3_release\* -DestinationPath ${{ github.ref_name }}_win_x64_一键包.zip
+        pyinstaller --noconfirm --onefile --windowed --icon=doc/img/icon.ico --add-data "data;data" --name txt_to_mp3 app.py
+        move dist\txt_to_mp3.exe ${{ github.ref_name }}_win_x64.exe
       
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
-        files: ${{ github.ref_name }}_win_x64_一键包.zip
+        files: ${{ github.ref_name }}_win_x64.exe
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
