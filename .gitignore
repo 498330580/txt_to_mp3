@@ -1,11 +1,14 @@
 # Python
 __pycache__/
-*.py[cod]
+# *.py[cod]
+*.py[co]
 *$py.class
-.env
-.venv/
-.gradio/
-venv/
+
+# 虚拟环境（保留）
+#.env
+#.venv/
+#.gradio/
+#venv/
 
 # 项目特定文件
 data/import/*
