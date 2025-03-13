@@ -29,7 +29,13 @@ jobs:
         
     - name: Create data directories
       run: |
-        mkdir -p data\import data\out_text data\out_mp3 data\out_mp4 data\images data\tmp
+        mkdir data 2>nul
+        mkdir data\import 2>nul
+        mkdir data\out_text 2>nul
+        mkdir data\out_mp3 2>nul
+        mkdir data\out_mp4 2>nul
+        mkdir data\images 2>nul
+        mkdir data\tmp 2>nul
         type nul > data\import\.gitkeep
         type nul > data\out_text\.gitkeep
         type nul > data\out_mp3\.gitkeep
