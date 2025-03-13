@@ -6,13 +6,15 @@ import threading
 import time
 from novel_process import process_novel
 from tts_process import process_tts, get_chinese_voices
+from video_process import process_novel_videos
+import subprocess
 
 # 全局变量，用于控制转换过程
 conversion_running = False
 conversion_progress = 0
 total_chapters = 0
-# 添加新的全局变量
 conversion_process = None
+video_process = None
 
 def get_base_path():
     """获取项目基础路径"""
@@ -107,26 +109,53 @@ def stop_conversion():
 
 # 删除 stop_conversion 函数
 def package_audio():
-    """打包音频文件"""
+    """打包所有文件"""
     base_path = get_base_path()
+    text_dir = os.path.join(base_path, "data", "out_text")
     mp3_dir = os.path.join(base_path, "data", "out_mp3")
+    mp4_dir = os.path.join(base_path, "data", "out_mp4")
     tmp_dir = os.path.join(base_path, "data", "tmp")
     os.makedirs(tmp_dir, exist_ok=True)
     zip_path = os.path.join(tmp_dir, "output.zip")
     
     # 创建ZIP文件
     with zipfile.ZipFile(zip_path, 'w') as zipf:
-        for root, _, files in os.walk(mp3_dir):
-            # 跳过 tmp 目录
-            if "tmp" in root.split(os.sep):
-                continue
-            for file in files:
-                file_path = os.path.join(root, file)
-                arcname = os.path.relpath(file_path, mp3_dir)
-                zipf.write(file_path, arcname)
+        # 打包文本文件
+        if os.path.exists(text_dir):
+            for novel_dir in os.listdir(text_dir):
+                novel_path = os.path.join(text_dir, novel_dir)
+                if os.path.isdir(novel_path):
+                    for file in os.listdir(novel_path):
+                        if file.endswith('.txt'):
+                            file_path = os.path.join(novel_path, file)
+                            arcname = os.path.join(novel_dir, "小说章节", file)
+                            zipf.write(file_path, arcname)
+        
+        # 打包音频文件
+        if os.path.exists(mp3_dir):
+            for novel_dir in os.listdir(mp3_dir):
+                novel_path = os.path.join(mp3_dir, novel_dir)
+                if os.path.isdir(novel_path):
+                    for file in os.listdir(novel_path):
+                        if file.endswith('.mp3'):
+                            file_path = os.path.join(novel_path, file)
+                            arcname = os.path.join(novel_dir, "小说语音", file)
+                            zipf.write(file_path, arcname)
+        
+        # 打包视频文件
+        if os.path.exists(mp4_dir):
+            for novel_dir in os.listdir(mp4_dir):
+                novel_path = os.path.join(mp4_dir, novel_dir)
+                if os.path.isdir(novel_path):
+                    for file in os.listdir(novel_path):
+                        if file.endswith('.mp4'):
+                            file_path = os.path.join(novel_path, file)
+                            arcname = os.path.join(novel_dir, "小说视频", file)
+                            zipf.write(file_path, arcname)
     
-    print("已完成音频文件打包")
+    print("已完成所有文件打包")
     return zip_path
+
 def clean_files():
     """清理文件"""
     base_path = get_base_path()
@@ -134,6 +163,8 @@ def clean_files():
         os.path.join(base_path, "data", "import"),
         os.path.join(base_path, "data", "out_text"),
         os.path.join(base_path, "data", "out_mp3"),
+        os.path.join(base_path, "data", "out_mp4"),
+        os.path.join(base_path, "data", "images"),
         os.path.join(base_path, "data", "tmp")
     ]
     
@@ -212,8 +243,8 @@ def delete_novel_folder(evt: gr.SelectData, folder_type):
     """删除小说文件夹"""
     try:
         # 获取点击的行索引和列索引
-        row_idx = evt.index[0]  # 获取行索引
-        col_idx = evt.index[1]  # 获取列索引
+        row_idx = evt.index[0]
+        col_idx = evt.index[1]
         
         # 确保是点击删除按钮（第三列）
         if col_idx == 2 and evt.value == "删除":
@@ -221,27 +252,127 @@ def delete_novel_folder(evt: gr.SelectData, folder_type):
             if folder_type == "text":
                 current_folders = [d for d in os.listdir(os.path.join(get_base_path(), "data", "out_text")) 
                                  if os.path.isdir(os.path.join(get_base_path(), "data", "out_text", d))]
-            else:
+                folder_base = "out_text"
+            elif folder_type == "mp3":
                 current_folders = [d for d in os.listdir(os.path.join(get_base_path(), "data", "out_mp3")) 
                                  if os.path.isdir(os.path.join(get_base_path(), "data", "out_mp3", d))]
+                folder_base = "out_mp3"
+            else:  # mp4
+                current_folders = [d for d in os.listdir(os.path.join(get_base_path(), "data", "out_mp4")) 
+                                 if os.path.isdir(os.path.join(get_base_path(), "data", "out_mp4", d))]
+                folder_base = "out_mp4"
             
             if row_idx < len(current_folders):
                 folder_name = current_folders[row_idx]
-                if folder_type == "text":
-                    folder_path = os.path.join(get_base_path(), "data", "out_text", folder_name)
-                else:
-                    folder_path = os.path.join(get_base_path(), "data", "out_mp3", folder_name)
+                folder_path = os.path.join(get_base_path(), "data", folder_base, folder_name)
                 
                 if os.path.exists(folder_path):
                     shutil.rmtree(folder_path)
                     print(f"已删除文件夹: {folder_name}")
-                    return "文件夹删除成功", (update_text_files() if folder_type == "text" else update_mp3_files())
+                    if folder_type == "text":
+                        return "文件夹删除成功", update_text_files()
+                    elif folder_type == "mp3":
+                        return "文件夹删除成功", update_mp3_files()
+                    else:
+                        return "文件夹删除成功", update_video_files()
                 else:
-                    return f"文件夹不存在: {folder_name}", (update_text_files() if folder_type == "text" else update_mp3_files())
+                    return f"文件夹不存在: {folder_name}", (update_text_files() if folder_type == "text" 
+                           else update_mp3_files() if folder_type == "mp3" 
+                           else update_video_files())
     except Exception as e:
         print(f"删除文件夹失败: {str(e)}")
-        return f"删除文件夹失败: {str(e)}", (update_text_files() if folder_type == "text" else update_mp3_files())
-    return "", (update_text_files() if folder_type == "text" else update_mp3_files())
+        return f"删除文件夹失败: {str(e)}", (update_text_files() if folder_type == "text" 
+               else update_mp3_files() if folder_type == "mp3" 
+               else update_video_files())
+    return "", (update_text_files() if folder_type == "text" 
+           else update_mp3_files() if folder_type == "mp3" 
+           else update_video_files())
+
+
+def process_videos(image_file):
+    """处理视频生成"""
+    global video_process
+    if image_file is None:
+        return "请选择视频封面图片"
+    
+    try:
+        # 复制图片到临时目录
+        base_path = get_base_path()
+        tmp_image = os.path.join(base_path, "data", "tmp", "cover.jpg")
+        os.makedirs(os.path.dirname(tmp_image), exist_ok=True)
+        shutil.copy2(image_file.name, tmp_image)
+        
+        # 启动新进程执行转换
+        cmd = f'python video_process_async.py "{tmp_image}"'
+        video_process = subprocess.Popen(
+            cmd,
+            shell=True,
+            stdout=None,
+            stderr=None
+        )
+        return "视频合成进程已启动"
+    except Exception as e:
+        print(f"转换进程启动失败: {str(e)}")
+        return f"转换进程启动失败: {str(e)}"
+
+def stop_video_process():
+    """停止视频合成进程"""
+    global video_process
+    try:
+        if video_process:
+            print("正在停止视频合成进程...")
+            subprocess.run(['taskkill', '/F', '/T', '/PID', str(video_process.pid)], capture_output=True)
+            video_process = None
+            return "已停止视频合成进程"
+    except Exception as e:
+        print(f"停止进程失败: {str(e)}")
+        return f"停止进程失败: {str(e)}"
+    return "没有正在运行的视频合成进程"
+
+def update_video_files():
+    """更新视频文件列表"""
+    base_path = get_base_path()
+    video_dir = os.path.join(base_path, "data", "out_mp4")
+    result = []
+    if os.path.exists(video_dir):
+        for novel_dir in os.listdir(video_dir):
+            novel_path = os.path.join(video_dir, novel_dir)
+            if os.path.isdir(novel_path):
+                chapter_count = len([f for f in os.listdir(novel_path) if f.endswith('.mp4')])
+                result.append([novel_dir, chapter_count, "删除"])
+    return result
+
+def delete_uploaded_image():
+    """删除上传的封面图片"""
+    try:
+        base_path = get_base_path()
+        images_dir = os.path.join(base_path, "data", "images")
+        if os.path.exists(images_dir):
+            # 删除目录下的所有文件
+            for file in os.listdir(images_dir):
+                file_path = os.path.join(images_dir, file)
+                if os.path.isfile(file_path):
+                    os.remove(file_path)
+            print("已删除所有封面图片")
+            return "已删除所有封面图片"
+        return "没有找到封面图片目录"
+    except Exception as e:
+        print(f"删除封面图片失败: {str(e)}")
+        return f"删除封面图片失败: {str(e)}"
+
+def delete_package():
+    """删除打包的文件"""
+    try:
+        base_path = get_base_path()
+        zip_path = os.path.join(base_path, "data", "tmp", "output.zip")
+        if os.path.exists(zip_path):
+            os.remove(zip_path)
+            print("已删除打包文件")
+            return "已删除打包文件", None  # 返回 None 来清空文件下载组件
+        return "没有找到打包文件", None
+    except Exception as e:
+        print(f"删除打包文件失败: {str(e)}")
+        return f"删除打包文件失败: {str(e)}", None
 
 # 创建Gradio界面
 with gr.Blocks(title="小说文本转语音工具") as demo:
@@ -310,16 +441,40 @@ with gr.Blocks(title="小说文本转语音工具") as demo:
             )
             convert_output = gr.Textbox(label="转换结果")
     
-    # 步骤4：打包下载
+    # 步骤4：生成视频
     with gr.Group():
-        gr.Markdown("## 步骤4：打包下载")
+        gr.Markdown("## 步骤4：生成视频")
         with gr.Column():
-            package_btn = gr.Button("打包音频文件", variant="primary")
-            package_output = gr.File(label="下载文件")
+            image_input = gr.File(
+                label="选择视频封面图片（jpg/png格式）",
+                file_types=[".jpg", ".jpeg", ".png"],
+                type="filepath"
+            )
+            with gr.Row():
+                video_btn = gr.Button("开始生成视频", variant="primary")
+                stop_video_btn = gr.Button("停止生成", variant="secondary")
+                delete_image_btn = gr.Button("删除封面", variant="secondary")  # 新增删除按钮
+                refresh_video_btn = gr.Button("刷新文件列表", variant="secondary")
+            video_files = gr.Dataframe(
+                headers=["小说", "已生成章节数", "操作"],
+                datatype=["str", "number", "str"],
+                label="视频生成进度列表"
+            )
+            video_output = gr.Textbox(label="生成结果")
     
-    # 步骤5：清理文件
+    # 步骤5：打包下载
     with gr.Group():
-        gr.Markdown("## 步骤5：清理文件")
+        gr.Markdown("## 步骤5：打包下载")
+        with gr.Column():
+            with gr.Row():
+                package_btn = gr.Button("打包所有文件", variant="primary")
+                delete_package_btn = gr.Button("删除打包", variant="secondary")  # 新增删除按钮
+            package_output = gr.File(label="下载文件")
+            package_status = gr.Textbox(label="打包状态")  # 新增状态显示
+    
+    # 步骤6：清理文件
+    with gr.Group():
+        gr.Markdown("## 步骤6：清理文件")
         with gr.Column():
             clean_btn = gr.Button("清理所有文件", variant="secondary")
             clean_output = gr.Textbox(label="清理结果")
@@ -401,6 +556,41 @@ with gr.Blocks(title="小说文本转语音工具") as demo:
         fn=delete_novel_folder,
         inputs=gr.State("mp3"),  # 使用 gr.State 传递固定参数
         outputs=[convert_output, mp3_files]
+    )
+    
+    # 合成视频事件
+    delete_image_btn.click(
+        fn=delete_uploaded_image,
+        outputs=[video_output]
+    )
+
+    video_btn.click(
+        fn=process_videos,
+        inputs=[image_input],
+        outputs=[video_output]
+    )
+
+    stop_video_btn.click(  # 需要在界面中添加停止按钮
+        fn=stop_video_process,
+        inputs=[],
+        outputs=[video_output]
+    )
+
+    refresh_video_btn.click(
+        fn=update_video_files,
+        outputs=video_files
+    )
+    
+    video_files.select(
+        fn=delete_novel_folder,
+        inputs=gr.State("mp4"),
+        outputs=[video_output, video_files]
+    )
+
+    # 删除打包文件
+    delete_package_btn.click(
+        fn=delete_package,
+        outputs=[package_status, package_output]
     )
 
 if __name__ == "__main__":

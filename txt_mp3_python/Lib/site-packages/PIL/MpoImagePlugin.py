@@ -22,11 +22,10 @@ from __future__ import annotations
 import itertools
 import os
 import struct
-from typing import IO, Any, cast
+from typing import IO
 
 from . import (
     Image,
-    ImageFile,
     ImageSequence,
     JpegImagePlugin,
     TiffImagePlugin,
@@ -102,11 +101,8 @@ class MpoImageFile(JpegImagePlugin.JpegImageFile):
         JpegImagePlugin.JpegImageFile._open(self)
         self._after_jpeg_open()
 
-    def _after_jpeg_open(self, mpheader: dict[int, Any] | None = None) -> None:
+    def _after_jpeg_open(self, mpheader=None):
         self.mpinfo = mpheader if mpheader is not None else self._getmp()
-        if self.mpinfo is None:
-            msg = "Image appears to be a malformed MPO file"
-            raise ValueError(msg)
         self.n_frames = self.mpinfo[0xB001]
         self.__mpoffsets = [
             mpent["DataOffset"] + self.info["mpoffset"] for mpent in self.mpinfo[0xB002]
@@ -146,19 +142,14 @@ class MpoImageFile(JpegImagePlugin.JpegImageFile):
         if self.info.get("exif") != original_exif:
             self._reload_exif()
 
-        self.tile = [
-            ImageFile._Tile("jpeg", (0, 0) + self.size, self.offset, self.tile[0][-1])
-        ]
+        self.tile = [("jpeg", (0, 0) + self.size, self.offset, self.tile[0][-1])]
         self.__frame = frame
 
     def tell(self) -> int:
         return self.__frame
 
     @staticmethod
-    def adopt(
-        jpeg_instance: JpegImagePlugin.JpegImageFile,
-        mpheader: dict[int, Any] | None = None,
-    ) -> MpoImageFile:
+    def adopt(jpeg_instance, mpheader=None):
         """
         Transform the instance of JpegImageFile into
         an instance of MpoImageFile.
@@ -170,9 +161,8 @@ class MpoImageFile(JpegImagePlugin.JpegImageFile):
         double call to _open.
         """
         jpeg_instance.__class__ = MpoImageFile
-        mpo_instance = cast(MpoImageFile, jpeg_instance)
-        mpo_instance._after_jpeg_open(mpheader)
-        return mpo_instance
+        jpeg_instance._after_jpeg_open(mpheader)
+        return jpeg_instance
 
 
 # ---------------------------------------------------------------------

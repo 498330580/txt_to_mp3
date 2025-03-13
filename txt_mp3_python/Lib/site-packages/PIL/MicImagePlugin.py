@@ -70,7 +70,7 @@ class MicImageFile(TiffImagePlugin.TiffImageFile):
         self.__fp = self.fp
         self.seek(0)
 
-    def seek(self, frame: int) -> None:
+    def seek(self, frame):
         if not self._seek_check(frame):
             return
         try:
