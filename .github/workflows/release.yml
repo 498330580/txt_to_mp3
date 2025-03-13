@@ -40,12 +40,12 @@ jobs:
     - name: Create Executable
       run: |
         pyinstaller --noconfirm --onefile --windowed --add-data "data;data" --name txt_to_mp3 app.py
-      if exist dist\txt_to_mp3.exe (
-        move dist\txt_to_mp3.exe "${{ github.ref_name }}_win_x64.exe"
-      ) else (
-        echo "Error: Executable not found"
-        exit 1
-      )
+        if exist dist\txt_to_mp3.exe (
+          move dist\txt_to_mp3.exe "${{ github.ref_name }}_win_x64.exe"
+        ) else (
+          echo "Error: Executable not found"
+          exit 1
+        )
       
     - name: Create Release
       uses: softprops/action-gh-release@v1
