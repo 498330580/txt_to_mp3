@@ -33,7 +33,6 @@ jobs:
         copy app.py txt_to_mp3_release\
         copy novel_process.py txt_to_mp3_release\
         copy tts_process.py txt_to_mp3_release\
-        copy win_run.bat txt_to_mp3_release\
         copy requirements.txt txt_to_mp3_release\
         copy README.md txt_to_mp3_release\
         copy LICENSE txt_to_mp3_release\
