@@ -36,12 +36,12 @@ jobs:
         mkdir data\out_mp4 2>nul
         mkdir data\images 2>nul
         mkdir data\tmp 2>nul
-        type nul > data\import\.gitkeep
-        type nul > data\out_text\.gitkeep
-        type nul > data\out_mp3\.gitkeep
-        type nul > data\out_mp4\.gitkeep
-        type nul > data\images\.gitkeep
-        type nul > data\tmp\.gitkeep
+        New-Item -ItemType File -Path data\import\.gitkeep -Force
+        New-Item -ItemType File -Path data\out_text\.gitkeep -Force
+        New-Item -ItemType File -Path data\out_mp3\.gitkeep -Force
+        New-Item -ItemType File -Path data\out_mp4\.gitkeep -Force
+        New-Item -ItemType File -Path data\images\.gitkeep -Force
+        New-Item -ItemType File -Path data\tmp\.gitkeep -Force
         
     - name: Create Executable
       run: |
