@@ -27,10 +27,25 @@ jobs:
         pip install -r requirements.txt
         pip install pyinstaller
         
+    - name: Create data directories
+      run: |
+        mkdir -p data\import data\out_text data\out_mp3 data\out_mp4 data\images data\tmp
+        type nul > data\import\.gitkeep
+        type nul > data\out_text\.gitkeep
+        type nul > data\out_mp3\.gitkeep
+        type nul > data\out_mp4\.gitkeep
+        type nul > data\images\.gitkeep
+        type nul > data\tmp\.gitkeep
+        
     - name: Create Executable
       run: |
-        pyinstaller --noconfirm --onefile --windowed --icon=doc/img/icon.ico --add-data "data;data" --name txt_to_mp3 app.py
-        move dist\txt_to_mp3.exe ${{ github.ref_name }}_win_x64.exe
+        pyinstaller --noconfirm --onefile --windowed --add-data "data;data" --name txt_to_mp3 app.py
+      if exist dist\txt_to_mp3.exe (
+        move dist\txt_to_mp3.exe "${{ github.ref_name }}_win_x64.exe"
+      ) else (
+        echo "Error: Executable not found"
+        exit 1
+      )
       
     - name: Create Release
       uses: softprops/action-gh-release@v1

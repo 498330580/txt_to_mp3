@@ -1,12 +1,12 @@
 # Python
 __pycache__/
-__pycache__/
 *.py[cod]
 *$py.class
 .env
 .venv/
 .gradio/
 venv/
+
 txt_mp3_python/
 
 
