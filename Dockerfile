@@ -31,15 +31,7 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
 # 设置数据卷
-VOLUME [
-    "/app/data/import",
-    "/app/data/out_text",
-    "/app/data/out_mp3",
-    "/app/data/out_mp3_merge",
-    "/app/data/out_mp4",
-    "/app/data/images",
-    "/app/data/tmp"
-]
+VOLUME ["/app/data/import", "/app/data/out_text", "/app/data/out_mp3", "/app/data/out_mp3_merge", "/app/data/out_mp4", "/app/data/images", "/app/data/tmp"]
 
 # 暴露端口
 EXPOSE 7860
