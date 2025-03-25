@@ -93,3 +93,15 @@ jobs:
           ${{ secrets.DOCKERHUB_USERNAME }}/txt_to_mp3:${{ github.ref_name }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
+        outputs: type=docker,dest=/tmp/docker_image.tar
+
+    - name: Compress Docker image
+      run: |
+        gzip -c /tmp/docker_image.tar > docker_img_${{ github.ref_name }}.tar.gz
+        
+    - name: Upload Docker image to release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: docker_img_${{ github.ref_name }}.tar.gz
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
