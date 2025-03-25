@@ -33,14 +33,19 @@ def merge_audio_files(chapters_per_file):
         for novel_idx, novel_dir in enumerate(novel_dirs, 1):
             novel_path = os.path.join(mp3_dir, novel_dir)
             
-            # 创建小说对应的合并目录
+            # 创建小说对应的合并目录和临时目录
             novel_merge_dir = os.path.join(merge_dir, novel_dir)
+            novel_tmp_dir = os.path.join(novel_merge_dir, "tmp")
             os.makedirs(novel_merge_dir, exist_ok=True)
+            os.makedirs(novel_tmp_dir, exist_ok=True)
             
             # 获取所有章节文件
             chapter_files = [f for f in os.listdir(novel_path) if f.endswith('.mp3')]
             chapter_files.sort()  # 按文件名排序
             total_chapters = len(chapter_files)
+            
+            print(f"\n开始处理第 {novel_idx}/{total_novels} 本小说：{novel_dir}")
+            print(f"总章节数：{total_chapters}")
             
             # 检查是否存在00000章
             intro_file = next((f for f in chapter_files if f.startswith('00000')), None)
@@ -66,19 +71,22 @@ def merge_audio_files(chapters_per_file):
                 # 如果是第一个分段且存在00000章
                 if intro_file and start_idx == 0:
                     # 先合并00001-00050
-                    temp_output = os.path.join(novel_merge_dir, f"temp_{start_num}-{end_num}.mp3")
-                    output_name = f"00000-{end_num}.mp3"
-                    output_path = os.path.join(novel_merge_dir, output_name)
+                    temp_output = os.path.join(novel_tmp_dir, f"temp_{start_num}-{end_num}.mp3")
+                    final_output_name = f"00000-{end_num}.mp3"
+                    temp_final_output = os.path.join(novel_tmp_dir, final_output_name)
+                    final_output = os.path.join(novel_merge_dir, final_output_name)
                     
-                    # 创建临时文件列表（不包含00000章）
-                    list_file = os.path.join(novel_merge_dir, "temp_list.txt")
+                    # 创建临时文件列表
+                    list_file = os.path.join(novel_tmp_dir, "temp_list.txt")
                     with open(list_file, "w", encoding="utf-8") as f:
                         for file in current_files:
                             f.write(f"file '{os.path.join(novel_path, file)}'\n")
                     
                     # 合并00001-00050
+                    print(f"\n正在合并：{start_num}-{end_num}")
                     cmd = f'"{ffmpeg_path}" -f concat -safe 0 -i "{list_file}" -c copy "{temp_output}"'
                     subprocess.run(cmd, shell=True, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    print(f"已完成合并：{start_num}-{end_num}")
                     
                     # 创建新的文件列表，包含00000章和临时文件
                     with open(list_file, "w", encoding="utf-8") as f:
@@ -86,8 +94,13 @@ def merge_audio_files(chapters_per_file):
                         f.write(f"file '{temp_output}'\n")
                     
                     # 合并00000章和临时文件
-                    cmd = f'"{ffmpeg_path}" -f concat -safe 0 -i "{list_file}" -c copy "{output_path}"'
+                    print(f"\n正在合并：{final_output_name}")
+                    cmd = f'"{ffmpeg_path}" -f concat -safe 0 -i "{list_file}" -c copy "{temp_final_output}"'
                     subprocess.run(cmd, shell=True, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    
+                    # 移动到最终位置
+                    shutil.move(temp_final_output, final_output)
+                    print(f"已完成合并：{final_output_name}")
                     
                     # 删除临时文件
                     os.remove(temp_output)
@@ -95,17 +108,23 @@ def merge_audio_files(chapters_per_file):
                 else:
                     # 普通合并逻辑
                     output_name = f"{start_num}-{end_num}.mp3"
-                    output_path = os.path.join(novel_merge_dir, output_name)
+                    temp_output = os.path.join(novel_tmp_dir, output_name)
+                    final_output = os.path.join(novel_merge_dir, output_name)
                     
                     # 创建临时文件列表
-                    list_file = os.path.join(novel_merge_dir, "temp_list.txt")
+                    list_file = os.path.join(novel_tmp_dir, "temp_list.txt")
                     with open(list_file, "w", encoding="utf-8") as f:
                         for file in current_files:
                             f.write(f"file '{os.path.join(novel_path, file)}'\n")
                     
                     # 使用ffmpeg合并文件
-                    cmd = f'"{ffmpeg_path}" -f concat -safe 0 -i "{list_file}" -c copy "{output_path}"'
+                    print(f"\n正在合并：{output_name}")
+                    cmd = f'"{ffmpeg_path}" -f concat -safe 0 -i "{list_file}" -c copy "{temp_output}"'
                     subprocess.run(cmd, shell=True, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    
+                    # 移动到最终位置
+                    shutil.move(temp_output, final_output)
+                    print(f"已完成合并：{output_name}")
                     
                     # 删除临时文件
                     os.remove(list_file)
@@ -113,11 +132,13 @@ def merge_audio_files(chapters_per_file):
                 start_idx += chapters_per_file
             
             # 输出当前小说的处理进度
-            progress = f"正在处理第 {novel_idx}/{total_novels} 本小说：{novel_dir}\n"
-            progress += f"总章节数：{total_chapters}，已合并为 {segment_count} 个文件\n"
-            print(progress)
+            print(f"\n小说《{novel_dir}》处理完成")
+            print(f"总章节数：{total_chapters}，已合并为 {segment_count} 个文件")
+            
+            # 删除临时目录
+            shutil.rmtree(novel_tmp_dir)
         
-        print("音频合并完成")
+        print("\n所有音频合并完成")
     except Exception as e:
         print(f"合并音频失败: {str(e)}")
 
