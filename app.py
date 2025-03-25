@@ -8,6 +8,7 @@ from novel_process import process_novel
 from tts_process import process_tts, get_chinese_voices
 from video_process import process_novel_videos
 import subprocess
+import sys
 
 # 全局变量，用于控制转换过程
 conversion_running = False
@@ -15,6 +16,7 @@ conversion_progress = 0
 total_chapters = 0
 conversion_process = None
 video_process = None
+merge_process = None  # 新增合并进程变量
 
 def get_base_path():
     """获取项目基础路径"""
@@ -67,11 +69,13 @@ def convert_to_speech(voice, rate):
     """转换语音"""
     global conversion_process
     try:
+        # 获取Python解释器路径
+        python_path = sys.executable
+        
         # 启动新进程执行转换，显示控制台输出
-        import subprocess
         # 获取总章节数作为参数传递
         total_chapters = count_total_chapters()
-        cmd = f'python tts_process.py "{voice}" "{format_rate(rate)}" {total_chapters}'
+        cmd = f'"{python_path}" tts_process.py "{voice}" "{format_rate(rate)}" {total_chapters}'
         conversion_process = subprocess.Popen(
             cmd, 
             shell=True,
@@ -302,8 +306,11 @@ def process_videos(image_file):
         os.makedirs(os.path.dirname(tmp_image), exist_ok=True)
         shutil.copy2(image_file.name, tmp_image)
         
+        # 获取Python解释器路径
+        python_path = sys.executable
+        
         # 启动新进程执行转换
-        cmd = f'python video_process_async.py "{tmp_image}"'
+        cmd = f'"{python_path}" video_process_async.py "{tmp_image}"'
         video_process = subprocess.Popen(
             cmd,
             shell=True,
@@ -338,8 +345,8 @@ def update_video_files():
         for novel_dir in os.listdir(video_dir):
             novel_path = os.path.join(video_dir, novel_dir)
             if os.path.isdir(novel_path):
-                chapter_count = len([f for f in os.listdir(novel_path) if f.endswith('.mp4')])
-                result.append([novel_dir, chapter_count, "删除"])
+                file_count = len([f for f in os.listdir(novel_path) if f.endswith('.mp4')])
+                result.append([novel_dir, file_count, "删除"])
     return result
 
 def delete_uploaded_image():
@@ -373,6 +380,182 @@ def delete_package():
     except Exception as e:
         print(f"删除打包文件失败: {str(e)}")
         return f"删除打包文件失败: {str(e)}", None
+
+def get_ffmpeg_path():
+    """获取ffmpeg路径"""
+    base_path = get_base_path()
+    return os.path.join(base_path, "ffmpeg", "ffmpeg.exe")
+
+def start_merge_audio(chapters_per_file):
+    """启动合并音频进程"""
+    global merge_process
+    try:
+        # 获取Python解释器路径
+        python_path = sys.executable
+        
+        # 启动新进程执行合并
+        cmd = f'"{python_path}" merge_process.py {chapters_per_file}'
+        merge_process = subprocess.Popen(
+            cmd,
+            shell=True,
+            stdout=None,
+            stderr=None
+        )
+        return "音频合并进程已启动"
+    except Exception as e:
+        print(f"合并进程启动失败: {str(e)}")
+        return f"合并进程启动失败: {str(e)}"
+
+def update_merged_files():
+    """更新合并后的音频文件列表"""
+    base_path = get_base_path()
+    merge_dir = os.path.join(base_path, "data", "out_mp3_merge")
+    result = []
+    if os.path.exists(merge_dir):
+        for novel_dir in os.listdir(merge_dir):
+            novel_path = os.path.join(merge_dir, novel_dir)
+            if os.path.isdir(novel_path):
+                file_count = len([f for f in os.listdir(novel_path) if f.endswith('.mp3')])
+                result.append([novel_dir, file_count, "删除"])
+    return result
+
+def delete_merged_folder(evt: gr.SelectData):
+    """删除合并后的音频文件夹"""
+    try:
+        row_idx = evt.index[0]
+        col_idx = evt.index[1]
+        
+        if col_idx == 2 and evt.value == "删除":
+            base_path = get_base_path()
+            merge_dir = os.path.join(base_path, "data", "out_mp3_merge")
+            current_folders = [d for d in os.listdir(merge_dir) 
+                             if os.path.isdir(os.path.join(merge_dir, d))]
+            
+            if row_idx < len(current_folders):
+                folder_name = current_folders[row_idx]
+                folder_path = os.path.join(merge_dir, folder_name)
+                
+                if os.path.exists(folder_path):
+                    shutil.rmtree(folder_path)
+                    print(f"已删除合并文件夹: {folder_name}")
+                    return "文件夹删除成功", update_merged_files()
+                else:
+                    return f"文件夹不存在: {folder_name}", update_merged_files()
+    except Exception as e:
+        print(f"删除合并文件夹失败: {str(e)}")
+        return f"删除合并文件夹失败: {str(e)}", update_merged_files()
+    return "", update_merged_files()
+
+def save_cover_image(image_file, novel_name):
+    """保存小说封面图片"""
+    if image_file is None:
+        return "请选择封面图片"
+    
+    try:
+        base_path = get_base_path()
+        images_dir = os.path.join(base_path, "data", "images")
+        os.makedirs(images_dir, exist_ok=True)
+        
+        # 获取文件扩展名
+        _, ext = os.path.splitext(image_file.name)
+        # 保存图片，使用小说名称作为文件名
+        image_path = os.path.join(images_dir, f"{novel_name}{ext}")
+        shutil.copy2(image_file.name, image_path)
+        print(f"已上传封面图片: {novel_name}{ext}")
+        return "封面图片上传成功"
+    except Exception as e:
+        print(f"图片上传失败: {str(e)}")
+        return f"图片上传失败: {str(e)}"
+
+def process_single_novel_video(novel_name):
+    """处理单本小说的视频生成"""
+    global video_process
+    try:
+        # 获取Python解释器路径
+        python_path = sys.executable
+        
+        # 启动新进程执行转换
+        cmd = f'"{python_path}" video_process_async.py "{novel_name}"'
+        video_process = subprocess.Popen(
+            cmd,
+            shell=True,
+            stdout=None,
+            stderr=None
+        )
+        return f"已启动 {novel_name} 的视频合成进程"
+    except Exception as e:
+        print(f"转换进程启动失败: {str(e)}")
+        return f"转换进程启动失败: {str(e)}"
+
+def get_merged_novels():
+    """获取已合并的小说列表"""
+    base_path = get_base_path()
+    merge_dir = os.path.join(base_path, "data", "out_mp3_merge")
+    novels = []
+    if os.path.exists(merge_dir):
+        novels = [d for d in os.listdir(merge_dir) if os.path.isdir(os.path.join(merge_dir, d))]
+    return novels
+
+def update_cover_status():
+    """更新封面状态列表"""
+    base_path = get_base_path()
+    images_dir = os.path.join(base_path, "data", "images")
+    merge_dir = os.path.join(base_path, "data", "out_mp3_merge")
+    result = []
+    
+    if os.path.exists(merge_dir):
+        for novel_dir in os.listdir(merge_dir):
+            if os.path.isdir(os.path.join(merge_dir, novel_dir)):
+                # 检查是否有对应的封面图片
+                has_cover = any(
+                    os.path.exists(os.path.join(images_dir, f"{novel_dir}{ext}"))
+                    for ext in ['.jpg', '.jpeg', '.png']
+                )
+                status = "已上传" if has_cover else "未上传"
+                result.append([novel_dir, status, "删除封面"])
+    
+    return result
+
+def delete_novel_cover(evt: gr.SelectData):
+    """删除小说封面图片"""
+    try:
+        row_idx = evt.index[0]
+        col_idx = evt.index[1]
+        
+        if col_idx == 2 and evt.value == "删除封面":
+            base_path = get_base_path()
+            images_dir = os.path.join(base_path, "data", "images")
+            novels = get_merged_novels()
+            
+            if row_idx < len(novels):
+                novel_name = novels[row_idx]
+                # 删除所有可能的图片格式
+                for ext in ['.jpg', '.jpeg', '.png']:
+                    image_path = os.path.join(images_dir, f"{novel_name}{ext}")
+                    if os.path.exists(image_path):
+                        os.remove(image_path)
+                        print(f"已删除封面图片: {novel_name}{ext}")
+                return "封面删除成功", update_cover_status()
+    except Exception as e:
+        print(f"删除封面失败: {str(e)}")
+        return f"删除封面失败: {str(e)}", update_cover_status()
+    return "", update_cover_status()
+
+def stop_merge_process():
+    """停止合并音频进程"""
+    global merge_process
+    try:
+        if merge_process:
+            print("正在停止合并音频进程...")
+            # 在 Windows 上使用 taskkill 强制终止进程及其子进程
+            subprocess.run(['taskkill', '/F', '/T', '/PID', str(merge_process.pid)], capture_output=True)
+            merge_process = None
+            print("合并音频进程已停止")
+            return "已停止合并音频进程"
+    except Exception as e:
+        print(f"停止进程失败: {str(e)}")
+        return f"停止进程失败: {str(e)}"
+    return "没有正在运行的合并音频进程"
 
 # 创建Gradio界面
 with gr.Blocks(title="小说文本转语音工具") as demo:
@@ -441,40 +624,74 @@ with gr.Blocks(title="小说文本转语音工具") as demo:
             )
             convert_output = gr.Textbox(label="转换结果")
     
-    # 步骤4：生成视频
+    # 步骤4：合并音频
     with gr.Group():
-        gr.Markdown("## 步骤4：生成视频")
+        gr.Markdown("## 步骤4：合并音频")
         with gr.Column():
-            image_input = gr.File(
-                label="选择视频封面图片（jpg/png格式）",
-                file_types=[".jpg", ".jpeg", ".png"],
-                type="filepath"
+            chapters_input = gr.Number(
+                label="每段章节数",
+                value=50,
+                precision=0,
+                minimum=1
+            )
+            with gr.Row():
+                merge_btn = gr.Button("开始合并音频", variant="primary")
+                stop_merge_btn = gr.Button("停止合并", variant="secondary")
+                refresh_merge_btn = gr.Button("刷新文件列表", variant="secondary")
+            merged_files = gr.Dataframe(
+                headers=["小说", "合并文件数", "操作"],
+                datatype=["str", "number", "str"],
+                label="合并音频列表"
+            )
+            merge_output = gr.Textbox(label="合并结果")
+    
+    # 步骤5：生成视频
+    with gr.Group():
+        gr.Markdown("## 步骤5：生成视频")
+        with gr.Column():
+            with gr.Row():
+                novel_dropdown = gr.Dropdown(
+                    choices=get_merged_novels(),
+                    label="选择小说",
+                    interactive=True
+                )
+                image_input = gr.File(
+                    label="选择视频封面图片（jpg/png格式）",
+                    file_types=[".jpg", ".jpeg", ".png"],
+                    type="filepath"
+                )
+            with gr.Row():
+                upload_cover_btn = gr.Button("上传封面", variant="primary")
+                refresh_cover_btn = gr.Button("刷新列表", variant="secondary")
+            cover_status = gr.Dataframe(
+                headers=["小说", "封面状态", "操作"],
+                datatype=["str", "str", "str"],
+                label="封面上传状态"
             )
             with gr.Row():
                 video_btn = gr.Button("开始生成视频", variant="primary")
                 stop_video_btn = gr.Button("停止生成", variant="secondary")
-                delete_image_btn = gr.Button("删除封面", variant="secondary")  # 新增删除按钮
-                refresh_video_btn = gr.Button("刷新文件列表", variant="secondary")
+                refresh_video_btn = gr.Button("刷新视频列表", variant="secondary")
             video_files = gr.Dataframe(
-                headers=["小说", "已生成章节数", "操作"],
+                headers=["小说", "已生成视频数", "操作"],
                 datatype=["str", "number", "str"],
                 label="视频生成进度列表"
             )
             video_output = gr.Textbox(label="生成结果")
     
-    # 步骤5：打包下载
+    # 步骤6：打包下载
     with gr.Group():
-        gr.Markdown("## 步骤5：打包下载")
+        gr.Markdown("## 步骤6：打包下载")
         with gr.Column():
             with gr.Row():
                 package_btn = gr.Button("打包所有文件", variant="primary")
-                delete_package_btn = gr.Button("删除打包", variant="secondary")  # 新增删除按钮
+                delete_package_btn = gr.Button("删除打包", variant="secondary")
             package_output = gr.File(label="下载文件")
-            package_status = gr.Textbox(label="打包状态")  # 新增状态显示
+            package_status = gr.Textbox(label="打包状态")
     
-    # 步骤6：清理文件
+    # 步骤7：清理文件
     with gr.Group():
-        gr.Markdown("## 步骤6：清理文件")
+        gr.Markdown("## 步骤7：清理文件")
         with gr.Column():
             clean_btn = gr.Button("清理所有文件", variant="secondary")
             clean_output = gr.Textbox(label="清理结果")
@@ -528,6 +745,33 @@ with gr.Blocks(title="小说文本转语音工具") as demo:
         outputs=convert_output
     )
     
+    # 合并音频事件
+    merge_btn.click(
+        fn=start_merge_audio,
+        inputs=[chapters_input],
+        outputs=merge_output
+    ).then(
+        fn=update_merged_files,
+        outputs=merged_files
+    )
+    
+    # 停止合并音频事件
+    stop_merge_btn.click(
+        fn=stop_merge_process,
+        inputs=[],
+        outputs=merge_output
+    )
+    
+    refresh_merge_btn.click(
+        fn=update_merged_files,
+        outputs=merged_files
+    )
+    
+    merged_files.select(
+        fn=delete_merged_folder,
+        outputs=[merge_output, merged_files]
+    )
+    
     package_btn.click(
         fn=package_audio,
         inputs=[],
@@ -548,45 +792,63 @@ with gr.Blocks(title="小说文本转语音工具") as demo:
     
     text_files.select(
         fn=delete_novel_folder,
-        inputs=gr.State("text"),  # 使用 gr.State 传递固定参数
+        inputs=gr.State("text"),
         outputs=[process_output, text_files]
     )
     
     mp3_files.select(
         fn=delete_novel_folder,
-        inputs=gr.State("mp3"),  # 使用 gr.State 传递固定参数
+        inputs=gr.State("mp3"),
         outputs=[convert_output, mp3_files]
     )
     
-    # 合成视频事件
-    delete_image_btn.click(
-        fn=delete_uploaded_image,
-        outputs=[video_output]
+    # 更新小说下拉列表
+    refresh_cover_btn.click(
+        fn=lambda: gr.Dropdown(choices=get_merged_novels()),
+        outputs=novel_dropdown
+    ).then(
+        fn=update_cover_status,
+        outputs=cover_status
     )
-
+    
+    # 上传封面图片
+    upload_cover_btn.click(
+        fn=save_cover_image,
+        inputs=[image_input, novel_dropdown],
+        outputs=video_output
+    ).then(
+        fn=update_cover_status,
+        outputs=cover_status
+    )
+    
+    # 删除封面图片
+    cover_status.select(
+        fn=delete_novel_cover,
+        outputs=[video_output, cover_status]
+    )
+    
+    # 生成视频
     video_btn.click(
-        fn=process_videos,
-        inputs=[image_input],
-        outputs=[video_output]
+        fn=process_single_novel_video,
+        inputs=[novel_dropdown],
+        outputs=video_output
+    ).then(
+        fn=update_video_files,
+        outputs=video_files
     )
-
-    stop_video_btn.click(  # 需要在界面中添加停止按钮
-        fn=stop_video_process,
-        inputs=[],
-        outputs=[video_output]
-    )
-
+    
+    # 添加刷新视频列表按钮事件
     refresh_video_btn.click(
         fn=update_video_files,
         outputs=video_files
     )
     
-    video_files.select(
-        fn=delete_novel_folder,
-        inputs=gr.State("mp4"),
-        outputs=[video_output, video_files]
+    # 停止视频生成进程
+    stop_video_btn.click(
+        fn=stop_video_process,
+        outputs=video_output
     )
-
+    
     # 删除打包文件
     delete_package_btn.click(
         fn=delete_package,

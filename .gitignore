@@ -14,6 +14,7 @@ txt_mp3_python/
 data/import/*
 data/out_text/*
 data/out_mp3/*
+data/out_mp3_merge/*
 data/out_mp4/*
 data/images/*
 data/tmp/*
@@ -23,6 +24,7 @@ data/tmp/*
 !data/import/.gitkeep
 !data/out_text/.gitkeep
 !data/out_mp3/.gitkeep
+!data/out_mp3_merge/.gitkeep
 !data/out_mp4/.gitkeep
 !data/images/.gitkeep
 !data/tmp/.gitkeep
