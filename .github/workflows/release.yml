@@ -28,22 +28,42 @@ jobs:
         
     - name: Create Release Package
       run: |
+        # 创建发布目录
         mkdir txt_to_mp3_release
+        
+        # 复制主要文件
         xcopy /E /I txt_mp3_python txt_to_mp3_release\txt_mp3_python
         copy app.py txt_to_mp3_release\
         copy novel_process.py txt_to_mp3_release\
         copy tts_process.py txt_to_mp3_release\
+        copy merge_process.py txt_to_mp3_release\
+        copy video_process.py txt_to_mp3_release\
+        copy video_process_async.py txt_to_mp3_release\
         copy requirements.txt txt_to_mp3_release\
         copy README.md txt_to_mp3_release\
         copy LICENSE txt_to_mp3_release\
         copy VERSION txt_to_mp3_release\
+        copy SECURITY.md txt_to_mp3_release\
+        
+        # 复制数据目录结构
         xcopy /E /I data txt_to_mp3_release\data
-        powershell Compress-Archive -Path txt_to_mp3_release\* -DestinationPath ${{ github.ref_name }}_win_x64_一键包.zip
+        
+        # 复制 ffmpeg
+        xcopy /E /I ffmpeg txt_to_mp3_release\ffmpeg
+        
+        # 创建压缩包
+        powershell Compress-Archive -Path txt_to_mp3_release\* -DestinationPath ${{ github.ref_name }}_win_x64_一键包.zip -Force
       
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
         files: ${{ github.ref_name }}_win_x64_一键包.zip
+        body: |
+          ## 更新内容
+          - 优化音频合并功能，支持临时目录处理
+          - 改进文件打包结构，包含所有必要文件
+          - 完善错误处理和日志记录
+          - 优化视频生成功能
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -71,3 +91,5 @@ jobs:
         tags: |
           ${{ secrets.DOCKERHUB_USERNAME }}/txt_to_mp3:latest
           ${{ secrets.DOCKERHUB_USERNAME }}/txt_to_mp3:${{ github.ref_name }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max

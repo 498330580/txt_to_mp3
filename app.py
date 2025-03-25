@@ -114,71 +114,111 @@ def stop_conversion():
 # 删除 stop_conversion 函数
 def package_audio():
     """打包所有文件"""
-    base_path = get_base_path()
-    text_dir = os.path.join(base_path, "data", "out_text")
-    mp3_dir = os.path.join(base_path, "data", "out_mp3")
-    mp4_dir = os.path.join(base_path, "data", "out_mp4")
-    tmp_dir = os.path.join(base_path, "data", "tmp")
-    os.makedirs(tmp_dir, exist_ok=True)
-    zip_path = os.path.join(tmp_dir, "output.zip")
-    
-    # 创建ZIP文件
-    with zipfile.ZipFile(zip_path, 'w') as zipf:
-        # 打包文本文件
-        if os.path.exists(text_dir):
-            for novel_dir in os.listdir(text_dir):
-                novel_path = os.path.join(text_dir, novel_dir)
-                if os.path.isdir(novel_path):
-                    for file in os.listdir(novel_path):
-                        if file.endswith('.txt'):
-                            file_path = os.path.join(novel_path, file)
-                            arcname = os.path.join(novel_dir, "小说章节", file)
-                            zipf.write(file_path, arcname)
+    try:
+        base_path = get_base_path()
+        text_dir = os.path.join(base_path, "data", "out_text")
+        mp3_dir = os.path.join(base_path, "data", "out_mp3")
+        merge_dir = os.path.join(base_path, "data", "out_mp3_merge")
+        mp4_dir = os.path.join(base_path, "data", "out_mp4")
+        tmp_dir = os.path.join(base_path, "data", "tmp")
+        os.makedirs(tmp_dir, exist_ok=True)
+        zip_path = os.path.join(tmp_dir, "output.zip")
         
-        # 打包音频文件
-        if os.path.exists(mp3_dir):
-            for novel_dir in os.listdir(mp3_dir):
-                novel_path = os.path.join(mp3_dir, novel_dir)
-                if os.path.isdir(novel_path):
-                    for file in os.listdir(novel_path):
-                        if file.endswith('.mp3'):
-                            file_path = os.path.join(novel_path, file)
-                            arcname = os.path.join(novel_dir, "小说语音", file)
-                            zipf.write(file_path, arcname)
+        print("开始打包文件...")
         
-        # 打包视频文件
-        if os.path.exists(mp4_dir):
-            for novel_dir in os.listdir(mp4_dir):
-                novel_path = os.path.join(mp4_dir, novel_dir)
-                if os.path.isdir(novel_path):
-                    for file in os.listdir(novel_path):
-                        if file.endswith('.mp4'):
-                            file_path = os.path.join(novel_path, file)
-                            arcname = os.path.join(novel_dir, "小说视频", file)
-                            zipf.write(file_path, arcname)
-    
-    print("已完成所有文件打包")
-    return zip_path
+        # 创建ZIP文件
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            # 打包文本文件
+            if os.path.exists(text_dir):
+                print("正在打包文本文件...")
+                for novel_dir in os.listdir(text_dir):
+                    novel_path = os.path.join(text_dir, novel_dir)
+                    if os.path.isdir(novel_path):
+                        for file in os.listdir(novel_path):
+                            if file.endswith('.txt'):
+                                file_path = os.path.join(novel_path, file)
+                                arcname = os.path.join(novel_dir, "小说章节", file)
+                                zipf.write(file_path, arcname)
+                                print(f"已添加文件: {arcname}")
+            
+            # 打包原始音频文件
+            if os.path.exists(mp3_dir):
+                print("正在打包原始音频文件...")
+                for novel_dir in os.listdir(mp3_dir):
+                    novel_path = os.path.join(mp3_dir, novel_dir)
+                    if os.path.isdir(novel_path):
+                        for file in os.listdir(novel_path):
+                            if file.endswith('.mp3'):
+                                file_path = os.path.join(novel_path, file)
+                                arcname = os.path.join(novel_dir, "原始语音", file)
+                                zipf.write(file_path, arcname)
+                                print(f"已添加文件: {arcname}")
+            
+            # 打包合并后的音频文件
+            if os.path.exists(merge_dir):
+                print("正在打包合并后的音频文件...")
+                for novel_dir in os.listdir(merge_dir):
+                    novel_path = os.path.join(merge_dir, novel_dir)
+                    if os.path.isdir(novel_path):
+                        for file in os.listdir(novel_path):
+                            if file.endswith('.mp3') and not os.path.isdir(os.path.join(novel_path, file)):
+                                file_path = os.path.join(novel_path, file)
+                                arcname = os.path.join(novel_dir, "合并语音", file)
+                                zipf.write(file_path, arcname)
+                                print(f"已添加文件: {arcname}")
+            
+            # 打包视频文件
+            if os.path.exists(mp4_dir):
+                print("正在打包视频文件...")
+                for novel_dir in os.listdir(mp4_dir):
+                    novel_path = os.path.join(mp4_dir, novel_dir)
+                    if os.path.isdir(novel_path):
+                        for file in os.listdir(novel_path):
+                            if file.endswith('.mp4'):
+                                file_path = os.path.join(novel_path, file)
+                                arcname = os.path.join(novel_dir, "视频文件", file)
+                                zipf.write(file_path, arcname)
+                                print(f"已添加文件: {arcname}")
+        
+        print("文件打包完成")
+        return zip_path
+    except Exception as e:
+        print(f"打包文件时出错: {str(e)}")
+        return None
 
 def clean_files():
     """清理文件"""
-    base_path = get_base_path()
-    dirs_to_clean = [
-        os.path.join(base_path, "data", "import"),
-        os.path.join(base_path, "data", "out_text"),
-        os.path.join(base_path, "data", "out_mp3"),
-        os.path.join(base_path, "data", "out_mp4"),
-        os.path.join(base_path, "data", "images"),
-        os.path.join(base_path, "data", "tmp")
-    ]
-    
-    for dir_path in dirs_to_clean:
-        if os.path.exists(dir_path):
-            shutil.rmtree(dir_path)
-            os.makedirs(dir_path)
-    
-    print("已清理所有文件")
-    return "文件清理完成"
+    try:
+        base_path = get_base_path()
+        dirs_to_clean = [
+            os.path.join(base_path, "data", "import"),
+            os.path.join(base_path, "data", "out_text"),
+            os.path.join(base_path, "data", "out_mp3"),
+            os.path.join(base_path, "data", "out_mp3_merge"),
+            os.path.join(base_path, "data", "out_mp4"),
+            os.path.join(base_path, "data", "images"),
+            os.path.join(base_path, "data", "tmp")
+        ]
+        
+        print("开始清理文件...")
+        
+        for dir_path in dirs_to_clean:
+            if os.path.exists(dir_path):
+                print(f"正在清理目录: {dir_path}")
+                try:
+                    shutil.rmtree(dir_path)
+                    os.makedirs(dir_path)
+                    print(f"目录清理完成: {dir_path}")
+                except Exception as e:
+                    print(f"清理目录 {dir_path} 时出错: {str(e)}")
+                    continue
+        
+        print("所有文件清理完成")
+        return "文件清理完成"
+    except Exception as e:
+        error_msg = f"清理文件时出错: {str(e)}"
+        print(error_msg)
+        return error_msg
 
 def list_files(directory):
     """列出指定目录下的文件"""
