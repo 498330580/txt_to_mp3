@@ -149,19 +149,51 @@ def process_novel_videos(novel_name: str) -> tuple[int, Optional[str]]:
     except Exception as e:
         return processed_count, f"处理视频时出错: {str(e)}"
 
-if __name__ == "__main__":
-    # 获取命令行参数（小说名称）
-    novel_name = sys.argv[1]
+def process_all_novels() -> tuple[int, Optional[str]]:
+    """处理所有小说的视频生成"""
+    base_path = get_base_path()
+    merge_dir = os.path.join(base_path, "data", "out_mp3_merge")
+    
+    if not os.path.exists(merge_dir):
+        return 0, "找不到合并音频目录"
     
     try:
-        print(f"\n开始处理小说: {novel_name}")
-        count, error = process_novel_videos(novel_name)
+        total_processed = 0
+        novel_dirs = [d for d in os.listdir(merge_dir) if os.path.isdir(os.path.join(merge_dir, d))]
         
-        if error:
-            print(f"处理失败: {error}")
-        else:
-            print(f"处理完成，共生成 {count} 个视频文件")
+        for novel_name in novel_dirs:
+            print(f"\n开始处理小说: {novel_name}")
+            count, error = process_novel_videos(novel_name)
+            
+            if error:
+                return total_processed, error
+                
+            total_processed += count
+            print(f"小说 {novel_name} 处理完成，生成 {count} 个视频")
+            
+        return total_processed, None
         
     except Exception as e:
-        print(f"处理过程出错: {str(e)}")
+        return total_processed, f"处理所有小说时出错: {str(e)}"
+
+if __name__ == "__main__":
+    try:
+        # 检查是否有命令行参数
+        if len(sys.argv) > 1:
+            # 如果有参数，处理指定的小说
+            novel_name = sys.argv[1]
+            count, error = process_novel_videos(novel_name)
+            if error:
+                print(f"处理失败: {error}")
+            else:
+                print(f"处理完成，共生成 {count} 个视频文件")
+        else:
+            # 如果没有参数，处理所有小说
+            count, error = process_all_novels()
+            if error:
+                print(f"处理失败: {error}")
+            else:
+                print(f"所有小说处理完成，共生成 {count} 个视频文件")
+    except Exception as e:
+        print(f"处理视频时出错: {str(e)}")
         sys.exit(1)

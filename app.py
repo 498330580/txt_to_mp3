@@ -2,8 +2,8 @@ import gradio as gr
 import os
 import shutil
 import zipfile
-import threading
-import time
+# import threading
+# import time
 from novel_process import process_novel
 from tts_process import process_tts, get_chinese_voices
 from video_process import process_novel_videos
@@ -21,6 +21,20 @@ merge_process = None  # 新增合并进程变量
 def get_base_path():
     """获取项目基础路径"""
     return os.path.dirname(os.path.abspath(__file__))
+
+# def ensure_directories():
+#     """确保所有必要的目录都存在"""
+#     base_path = get_base_path()
+#     directories = [
+#         os.path.join(base_path, "data", "out_mp3"),
+#         os.path.join(base_path, "data", "out_mp3_merge"),
+#         os.path.join(base_path, "data", "out_video"),
+#         # os.path.join(base_path, "data", "out_zip"),
+#         os.path.join(base_path, "data", "config")
+#     ]
+    
+#     for directory in directories:
+#         os.makedirs(directory, exist_ok=True)
 
 def format_rate(rate):
     """格式化语速值"""
@@ -614,306 +628,310 @@ def stop_merge_process():
 with gr.Blocks(title="小说文本转语音工具") as demo:
     gr.Markdown("# 小说文本转语音工具")
     
-    with gr.Row():
-        voice_dropdown = gr.Dropdown(
-            choices=get_chinese_voices(),
-            value="zh-CN-YunxiNeural",
-            label="选择语音"
-        )
-        rate_slider = gr.Slider(
-            minimum=-50,
-            maximum=50,
-            value=10,
-            step=10,
-            label="语速调节（%）"
-        )
+    # 确保所有必要的目录都存在
+    # ensure_directories()
     
-    # 步骤1：上传文件
-    with gr.Group():
-        gr.Markdown("## 步骤1：上传小说文件")
-        with gr.Column():
-            file_input = gr.File(
-                label="选择小说文件（txt格式）",
-                file_types=[".txt"],
-                type="filepath"
+    with gr.Tab("步骤1：文本转语音"):
+        with gr.Row():
+            voice_dropdown = gr.Dropdown(
+                choices=get_chinese_voices(),
+                value="zh-CN-YunxiNeural",
+                label="选择语音"
             )
-            with gr.Row():
-                upload_btn = gr.Button("上传文件", variant="primary")
-                refresh_import_btn = gr.Button("刷新文件列表", variant="secondary")
-            import_files = gr.Dataframe(
-                headers=["文件名", "操作"],
-                datatype=["str", "str"],
-                label="已上传文件列表"
+            rate_slider = gr.Slider(
+                minimum=-50,
+                maximum=50,
+                value=10,
+                step=10,
+                label="语速调节（%）"
             )
-            upload_output = gr.Textbox(label="上传结果")
-    
-    # 步骤2：处理章节
-    with gr.Group():
-        gr.Markdown("## 步骤2：处理小说分章节")
-        with gr.Column():
-            process_btn = gr.Button("开始处理章节", variant="primary")
-            with gr.Row():
-                refresh_text_btn = gr.Button("刷新文件列表", variant="secondary")
-            text_files = gr.Dataframe(
-                headers=["小说", "章节数", "操作"],
-                datatype=["str", "number", "str"],
-                label="已处理章节列表"
-            )
-            process_output = gr.Textbox(label="处理结果")
-    
-    # 步骤3：转换语音
-    with gr.Group():
-        gr.Markdown("## 步骤3：转换语音")
-        with gr.Column():
-            with gr.Row():
-                convert_btn = gr.Button("开始转换语音", variant="primary")
-                stop_btn = gr.Button("停止转换", variant="secondary")
-            with gr.Row():
-                refresh_mp3_btn = gr.Button("刷新文件列表", variant="secondary")
-            mp3_files = gr.Dataframe(
-                headers=["小说", "已转换章节数", "操作"],
-                datatype=["str", "number", "str"],
-                label="转换进度列表"
-            )
-            convert_output = gr.Textbox(label="转换结果")
-    
-    # 步骤4：合并音频
-    with gr.Group():
-        gr.Markdown("## 步骤4：合并音频")
-        with gr.Column():
-            chapters_input = gr.Number(
-                label="每段章节数",
-                value=50,
-                precision=0,
-                minimum=1
-            )
-            with gr.Row():
-                merge_btn = gr.Button("开始合并音频", variant="primary")
-                stop_merge_btn = gr.Button("停止合并", variant="secondary")
-                refresh_merge_btn = gr.Button("刷新文件列表", variant="secondary")
-            merged_files = gr.Dataframe(
-                headers=["小说", "合并文件数", "操作"],
-                datatype=["str", "number", "str"],
-                label="合并音频列表"
-            )
-            merge_output = gr.Textbox(label="合并结果")
-    
-    # 步骤5：生成视频
-    with gr.Group():
-        gr.Markdown("## 步骤5：生成视频")
-        with gr.Column():
-            with gr.Row():
-                novel_dropdown = gr.Dropdown(
-                    choices=get_merged_novels(),
-                    label="选择小说",
-                    interactive=True
-                )
-                image_input = gr.File(
-                    label="选择视频封面图片（jpg/png格式）",
-                    file_types=[".jpg", ".jpeg", ".png"],
+        
+        # 步骤1：上传文件
+        with gr.Group():
+            gr.Markdown("## 步骤1：上传小说文件")
+            with gr.Column():
+                file_input = gr.File(
+                    label="选择小说文件（txt格式）",
+                    file_types=[".txt"],
                     type="filepath"
                 )
-            with gr.Row():
-                upload_cover_btn = gr.Button("上传封面", variant="primary")
-                refresh_cover_btn = gr.Button("刷新列表", variant="secondary")
-            cover_status = gr.Dataframe(
-                headers=["小说", "封面状态", "操作"],
-                datatype=["str", "str", "str"],
-                label="封面上传状态"
-            )
-            with gr.Row():
-                video_btn = gr.Button("开始生成视频", variant="primary")
-                stop_video_btn = gr.Button("停止生成", variant="secondary")
-                refresh_video_btn = gr.Button("刷新视频列表", variant="secondary")
-            video_files = gr.Dataframe(
-                headers=["小说", "已生成视频数", "操作"],
-                datatype=["str", "number", "str"],
-                label="视频生成进度列表"
-            )
-            video_output = gr.Textbox(label="生成结果")
-    
-    # 步骤6：打包下载
-    with gr.Group():
-        gr.Markdown("## 步骤6：打包下载")
-        with gr.Column():
-            with gr.Row():
-                package_btn = gr.Button("打包所有文件", variant="primary")
-                delete_package_btn = gr.Button("删除打包", variant="secondary")
-            package_output = gr.File(label="下载文件")
-            package_status = gr.Textbox(label="打包状态")
-    
-    # 步骤7：清理文件
-    with gr.Group():
-        gr.Markdown("## 步骤7：清理文件")
-        with gr.Column():
-            clean_btn = gr.Button("清理所有文件", variant="secondary")
-            clean_output = gr.Textbox(label="清理结果")
-    
-    # 绑定事件
-    upload_btn.click(
-        fn=save_uploaded_file,
-        inputs=[file_input],
-        outputs=upload_output
-    ).then(
-        fn=update_import_files,
-        outputs=import_files
-    )
-    
-    refresh_import_btn.click(
-        fn=update_import_files,
-        outputs=import_files
-    )
-    
-    process_btn.click(
-        fn=process_chapters,
-        inputs=[],
-        outputs=process_output
-    ).then(
-        fn=update_text_files,
-        outputs=text_files
-    )
-    
-    refresh_text_btn.click(
-        fn=update_text_files,
-        outputs=text_files
-    )
-    
-    convert_btn.click(
-        fn=convert_to_speech,
-        inputs=[voice_dropdown, rate_slider],
-        outputs=convert_output
-    ).then(
-        fn=update_mp3_files,
-        outputs=mp3_files
-    )
-    
-    refresh_mp3_btn.click(
-        fn=update_mp3_files,
-        outputs=mp3_files
-    )
-    
-    stop_btn.click(
-        fn=stop_conversion,
-        inputs=[],
-        outputs=convert_output
-    )
-    
-    # 合并音频事件
-    merge_btn.click(
-        fn=start_merge_audio,
-        inputs=[chapters_input],
-        outputs=merge_output
-    ).then(
-        fn=update_merged_files,
-        outputs=merged_files
-    )
-    
-    # 停止合并音频事件
-    stop_merge_btn.click(
-        fn=stop_merge_process,
-        inputs=[],
-        outputs=merge_output
-    )
-    
-    refresh_merge_btn.click(
-        fn=update_merged_files,
-        outputs=merged_files
-    )
-    
-    merged_files.select(
-        fn=delete_merged_folder,
-        outputs=[merge_output, merged_files]
-    )
-    
-    package_btn.click(
-        fn=package_audio,
-        inputs=[],
-        outputs=package_output
-    )
-    
-    clean_btn.click(
-        fn=clean_files,
-        inputs=[],
-        outputs=clean_output
-    )
+                with gr.Row():
+                    upload_btn = gr.Button("上传文件", variant="primary")
+                    refresh_import_btn = gr.Button("刷新文件列表", variant="secondary")
+                import_files = gr.Dataframe(
+                    headers=["文件名", "操作"],
+                    datatype=["str", "str"],
+                    label="已上传文件列表"
+                )
+                upload_output = gr.Textbox(label="上传结果")
+        
+        # 步骤2：处理章节
+        with gr.Group():
+            gr.Markdown("## 步骤2：处理小说分章节")
+            with gr.Column():
+                process_btn = gr.Button("开始处理章节", variant="primary")
+                with gr.Row():
+                    refresh_text_btn = gr.Button("刷新文件列表", variant="secondary")
+                text_files = gr.Dataframe(
+                    headers=["小说", "章节数", "操作"],
+                    datatype=["str", "number", "str"],
+                    label="已处理章节列表"
+                )
+                process_output = gr.Textbox(label="处理结果")
+        
+        # 步骤3：转换语音
+        with gr.Group():
+            gr.Markdown("## 步骤3：转换语音")
+            with gr.Column():
+                with gr.Row():
+                    convert_btn = gr.Button("开始转换语音", variant="primary")
+                    stop_btn = gr.Button("停止转换", variant="secondary")
+                with gr.Row():
+                    refresh_mp3_btn = gr.Button("刷新文件列表", variant="secondary")
+                mp3_files = gr.Dataframe(
+                    headers=["小说", "已转换章节数", "操作"],
+                    datatype=["str", "number", "str"],
+                    label="转换进度列表"
+                )
+                convert_output = gr.Textbox(label="转换结果")
+        
+        # 步骤4：合并音频
+        with gr.Group():
+            gr.Markdown("## 步骤4：合并音频")
+            with gr.Column():
+                chapters_input = gr.Number(
+                    label="每段章节数",
+                    value=50,
+                    precision=0,
+                    minimum=1
+                )
+                with gr.Row():
+                    merge_btn = gr.Button("开始合并音频", variant="primary")
+                    stop_merge_btn = gr.Button("停止合并", variant="secondary")
+                    refresh_merge_btn = gr.Button("刷新文件列表", variant="secondary")
+                merged_files = gr.Dataframe(
+                    headers=["小说", "合并文件数", "操作"],
+                    datatype=["str", "number", "str"],
+                    label="合并音频列表"
+                )
+                merge_output = gr.Textbox(label="合并结果")
+        
+        # 步骤5：生成视频
+        with gr.Group():
+            gr.Markdown("## 步骤5：生成视频")
+            with gr.Column():
+                with gr.Row():
+                    novel_dropdown = gr.Dropdown(
+                        choices=get_merged_novels(),
+                        label="选择小说",
+                        interactive=True
+                    )
+                    image_input = gr.File(
+                        label="选择视频封面图片（jpg/png格式）",
+                        file_types=[".jpg", ".jpeg", ".png"],
+                        type="filepath"
+                    )
+                with gr.Row():
+                    upload_cover_btn = gr.Button("上传封面", variant="primary")
+                    refresh_cover_btn = gr.Button("刷新列表", variant="secondary")
+                cover_status = gr.Dataframe(
+                    headers=["小说", "封面状态", "操作"],
+                    datatype=["str", "str", "str"],
+                    label="封面上传状态"
+                )
+                with gr.Row():
+                    video_btn = gr.Button("开始生成视频", variant="primary")
+                    stop_video_btn = gr.Button("停止生成", variant="secondary")
+                    refresh_video_btn = gr.Button("刷新视频列表", variant="secondary")
+                video_files = gr.Dataframe(
+                    headers=["小说", "已生成视频数", "操作"],
+                    datatype=["str", "number", "str"],
+                    label="视频生成进度列表"
+                )
+                video_output = gr.Textbox(label="生成结果")
+        
+        # 步骤6：打包下载
+        with gr.Group():
+            gr.Markdown("## 步骤6：打包下载")
+            with gr.Column():
+                with gr.Row():
+                    package_btn = gr.Button("打包所有文件", variant="primary")
+                    delete_package_btn = gr.Button("删除打包", variant="secondary")
+                package_output = gr.File(label="下载文件")
+                package_status = gr.Textbox(label="打包状态")
+        
+        # 步骤7：清理文件
+        with gr.Group():
+            gr.Markdown("## 步骤7：清理文件")
+            with gr.Column():
+                clean_btn = gr.Button("清理所有文件", variant="secondary")
+                clean_output = gr.Textbox(label="清理结果")
+        
+        # 绑定事件
+        upload_btn.click(
+            fn=save_uploaded_file,
+            inputs=[file_input],
+            outputs=upload_output
+        ).then(
+            fn=update_import_files,
+            outputs=import_files
+        )
+        
+        refresh_import_btn.click(
+            fn=update_import_files,
+            outputs=import_files
+        )
+        
+        process_btn.click(
+            fn=process_chapters,
+            inputs=[],
+            outputs=process_output
+        ).then(
+            fn=update_text_files,
+            outputs=text_files
+        )
+        
+        refresh_text_btn.click(
+            fn=update_text_files,
+            outputs=text_files
+        )
+        
+        convert_btn.click(
+            fn=convert_to_speech,
+            inputs=[voice_dropdown, rate_slider],
+            outputs=convert_output
+        ).then(
+            fn=update_mp3_files,
+            outputs=mp3_files
+        )
+        
+        refresh_mp3_btn.click(
+            fn=update_mp3_files,
+            outputs=mp3_files
+        )
+        
+        stop_btn.click(
+            fn=stop_conversion,
+            inputs=[],
+            outputs=convert_output
+        )
+        
+        # 合并音频事件
+        merge_btn.click(
+            fn=start_merge_audio,
+            inputs=[chapters_input],
+            outputs=merge_output
+        ).then(
+            fn=update_merged_files,
+            outputs=merged_files
+        )
+        
+        # 停止合并音频事件
+        stop_merge_btn.click(
+            fn=stop_merge_process,
+            inputs=[],
+            outputs=merge_output
+        )
+        
+        refresh_merge_btn.click(
+            fn=update_merged_files,
+            outputs=merged_files
+        )
+        
+        merged_files.select(
+            fn=delete_merged_folder,
+            outputs=[merge_output, merged_files]
+        )
+        
+        package_btn.click(
+            fn=package_audio,
+            inputs=[],
+            outputs=package_output
+        )
+        
+        clean_btn.click(
+            fn=clean_files,
+            inputs=[],
+            outputs=clean_output
+        )
 
-    # 修改事件绑定部分
-    import_files.select(
-        fn=delete_import_file,
-        outputs=[upload_output, import_files]
-    )
-    
-    text_files.select(
-        fn=delete_novel_folder,
-        inputs=gr.State("text"),
-        outputs=[process_output, text_files]
-    )
-    
-    mp3_files.select(
-        fn=delete_novel_folder,
-        inputs=gr.State("mp3"),
-        outputs=[convert_output, mp3_files]
-    )
-    
-    # 更新小说下拉列表
-    refresh_cover_btn.click(
-        fn=lambda: gr.Dropdown(choices=get_merged_novels()),
-        outputs=novel_dropdown
-    ).then(
-        fn=update_cover_status,
-        outputs=cover_status
-    )
-    
-    # 上传封面图片
-    upload_cover_btn.click(
-        fn=save_cover_image,
-        inputs=[image_input, novel_dropdown],
-        outputs=video_output
-    ).then(
-        fn=update_cover_status,
-        outputs=cover_status
-    )
-    
-    # 删除封面图片
-    cover_status.select(
-        fn=delete_novel_cover,
-        outputs=[video_output, cover_status]
-    )
-    
-    # 生成视频
-    video_btn.click(
-        fn=process_videos,
-        inputs=[],
-        outputs=video_output
-    ).then(
-        fn=update_video_files,
-        outputs=video_files
-    )
-    
-    # 添加刷新视频列表按钮事件
-    refresh_video_btn.click(
-        fn=update_video_files,
-        outputs=video_files
-    )
-    
-    # 停止视频生成进程
-    stop_video_btn.click(
-        fn=stop_video_process,
-        outputs=video_output
-    )
-    
-    # 删除打包文件
-    delete_package_btn.click(
-        fn=delete_package,
-        outputs=[package_status, package_output]
-    )
-    
-    # 添加视频文件删除事件绑定
-    video_files.select(
-        fn=delete_novel_folder,
-        inputs=gr.State("mp4"),
-        outputs=[video_output, video_files]
-    )
+        # 修改事件绑定部分
+        import_files.select(
+            fn=delete_import_file,
+            outputs=[upload_output, import_files]
+        )
+        
+        text_files.select(
+            fn=delete_novel_folder,
+            inputs=gr.State("text"),
+            outputs=[process_output, text_files]
+        )
+        
+        mp3_files.select(
+            fn=delete_novel_folder,
+            inputs=gr.State("mp3"),
+            outputs=[convert_output, mp3_files]
+        )
+        
+        # 更新小说下拉列表
+        refresh_cover_btn.click(
+            fn=lambda: gr.Dropdown(choices=get_merged_novels()),
+            outputs=novel_dropdown
+        ).then(
+            fn=update_cover_status,
+            outputs=cover_status
+        )
+        
+        # 上传封面图片
+        upload_cover_btn.click(
+            fn=save_cover_image,
+            inputs=[image_input, novel_dropdown],
+            outputs=video_output
+        ).then(
+            fn=update_cover_status,
+            outputs=cover_status
+        )
+        
+        # 删除封面图片
+        cover_status.select(
+            fn=delete_novel_cover,
+            outputs=[video_output, cover_status]
+        )
+        
+        # 生成视频
+        video_btn.click(
+            fn=process_videos,
+            inputs=[],
+            outputs=video_output
+        ).then(
+            fn=update_video_files,
+            outputs=video_files
+        )
+        
+        # 添加刷新视频列表按钮事件
+        refresh_video_btn.click(
+            fn=update_video_files,
+            outputs=video_files
+        )
+        
+        # 停止视频生成进程
+        stop_video_btn.click(
+            fn=stop_video_process,
+            outputs=video_output
+        )
+        
+        # 删除打包文件
+        delete_package_btn.click(
+            fn=delete_package,
+            outputs=[package_status, package_output]
+        )
+        
+        # 添加视频文件删除事件绑定
+        video_files.select(
+            fn=delete_novel_folder,
+            inputs=gr.State("mp4"),
+            outputs=[video_output, video_files]
+        )
 
 if __name__ == "__main__":
     demo.launch(share=False)
