@@ -73,9 +73,8 @@ def load_chapter_patterns() -> List[Tuple[str, str]]:
         print(f"加载配置文件失败: {str(e)}")
         # 返回默认模式
         return [
-            (r'第([0-9零一二三四五六七八九十百千万]+)章.*', '数字/中文数字'),
-            (r'第([壹贰叁肆伍陆柒捌玖拾佰仟萬]+)章.*', '繁体数字'),
-            (r'^(\d+)章.*', '数字+章'),
+            (r'^第([0-9零一二三四五六七八九十百千万]+)章.*', '数字/中文数字'),
+            (r'^第([壹贰叁肆伍陆柒捌玖拾佰仟萬]+)章.*', '繁体数字')
         ]
 
 def extract_chapter_number(title: str) -> Optional[int]:
@@ -144,65 +143,9 @@ def process_content(content):
 
 def get_chapter_info(line):
     """识别章节标题和章节号"""
-    # 匹配不同格式的章节标题
-    patterns = [
-        (r'第([0-9零一二三四五六七八九十百千万]+)章.*', '数字/中文数字'),
-        (r'第([壹贰叁肆伍陆柒捌玖拾佰仟萬]+)章.*', '繁体数字'),
-        # (r'^(\d+)[\s\.、]+.*', '纯数字'),
-        (r'^(\d+)章.*', '数字+章'),
-    ]
-    
-    for pattern, type in patterns:
-        match = re.search(pattern, line)
-        if match:
-            number_str = match.group(1)
-            if type == '数字/中文数字':
-                # 处理中文数字
-                chinese_nums = {
-                    '零': 0, '一': 1, '二': 2, '三': 3, '四': 4, '五': 5,
-                    '六': 6, '七': 7, '八': 8, '九': 9, '十': 10,
-                    '百': 100, '千': 1000, '万': 10000
-                }
-                
-                try:
-                    # 尝试直接转换数字
-                    number = int(number_str)
-                except ValueError:
-                    # 处理中文数字
-                    result = 0
-                    temp = 0
-                    for i, char in enumerate(number_str):
-                        if char in ['百', '千', '万']:
-                            # 如果前面没有数字，默认为1
-                            temp = temp or 1
-                            temp *= chinese_nums[char]
-                            result += temp
-                            temp = 0
-                        elif char == '十':
-                            # 如果前面没有数字，默认为1
-                            temp = temp or 1
-                            temp *= 10
-                            result += temp
-                            temp = 0
-                        elif char in chinese_nums:
-                            temp = chinese_nums[char]
-                            # 如果是最后一个字符，直接加上
-                            if i == len(number_str) - 1:
-                                result += temp
-                    number = result or temp  # 如果result为0，使用temp的值
-            elif type == '繁体数字':
-                # 处理繁体数字
-                traditional_nums = {'壹':1, '贰':2, '叁':3, '肆':4, '伍':5,
-                                 '陆':6, '柒':7, '捌':8, '玖':9, '拾':10}
-                if number_str in traditional_nums:
-                    number = traditional_nums[number_str]
-                else:
-                    number = sum(traditional_nums.get(c, 0) for c in number_str)
-            else:
-                # 处理纯数字格式
-                number = int(number_str)
-            
-            return number, line
+    number = extract_chapter_number(line)
+    if number is not None:
+        return number, line
     
     return None, None
 
