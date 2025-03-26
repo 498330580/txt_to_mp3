@@ -9,6 +9,7 @@ from tts_process import process_tts, get_chinese_voices
 from video_process import process_novel_videos
 import subprocess
 import sys
+import threading
 
 # 全局变量，用于控制转换过程
 conversion_running = False
@@ -454,24 +455,42 @@ def get_ffmpeg_path():
     return os.path.join(base_path, "ffmpeg", "ffmpeg.exe")
 
 def start_merge_audio(chapters_per_file):
-    """启动合并音频进程"""
-    global merge_process
+    """开始合并音频"""
     try:
-        # 获取Python解释器路径
-        python_path = sys.executable
-        
-        # 启动新进程执行合并
-        cmd = f'"{python_path}" merge_process.py {chapters_per_file}'
-        merge_process = subprocess.Popen(
-            cmd,
-            shell=True,
-            stdout=None,
-            stderr=None
+        # 启动合并进程
+        process = subprocess.Popen(
+            [sys.executable, "merge_process.py", str(chapters_per_file)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+            universal_newlines=True
         )
-        return "音频合并进程已启动"
+        
+        # 启动检查进程的线程
+        thread = threading.Thread(target=check_merge_process, args=(process,))
+        thread.daemon = True
+        thread.start()
+        
+        return "合并进程已启动", update_merged_files()
     except Exception as e:
-        print(f"合并进程启动失败: {str(e)}")
-        return f"合并进程启动失败: {str(e)}"
+        print(f"启动合并进程失败: {str(e)}")
+        return f"启动合并进程失败: {str(e)}", update_merged_files()
+
+def check_merge_process(process):
+    """检查合并进程是否完成"""
+    try:
+        # 等待进程完成
+        process.wait()
+        
+        # 检查返回码
+        if process.returncode == 0:
+            print("\n合并完成")
+        else:
+            print("\n合并失败")
+            
+    except Exception as e:
+        print(f"检查合并进程时出错: {str(e)}")
 
 def update_merged_files():
     """更新合并后的音频文件列表"""
@@ -820,10 +839,7 @@ with gr.Blocks(title="小说文本转语音工具") as demo:
         merge_btn.click(
             fn=start_merge_audio,
             inputs=[chapters_input],
-            outputs=merge_output
-        ).then(
-            fn=update_merged_files,
-            outputs=merged_files
+            outputs=[merge_output, merged_files]
         )
         
         # 停止合并音频事件
