@@ -456,9 +456,10 @@ def get_ffmpeg_path():
 
 def start_merge_audio(chapters_per_file):
     """开始合并音频"""
+    global merge_process
     try:
         # 启动合并进程
-        process = subprocess.Popen(
+        merge_process = subprocess.Popen(
             [sys.executable, "merge_process.py", str(chapters_per_file)],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -469,7 +470,7 @@ def start_merge_audio(chapters_per_file):
         )
         
         # 启动检查进程的线程
-        thread = threading.Thread(target=check_merge_process, args=(process,))
+        thread = threading.Thread(target=check_merge_process, args=(merge_process,))
         thread.daemon = True
         thread.start()
         
