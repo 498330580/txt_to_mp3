@@ -235,6 +235,7 @@ def process_novel():
     
     for novel in novels:
         try:
+            print(f"\n正在处理小说：{novel['name']}")
             # 检测文件编码
             encoding = detect_encoding(novel['path'])
             if not encoding:
@@ -251,6 +252,7 @@ def process_novel():
             # 保存章节
             save_chapters(novel['name'], chapters)
             processed_count += 1
+            print(f"小说 {novel['name']} 处理完成，共分割 {len(chapters)} 个章节")
             
         except Exception as e:
             print(f"处理文件失败 {novel['name']}: {str(e)}")
