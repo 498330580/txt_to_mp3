@@ -160,11 +160,21 @@ def split_chapters(content):
     current_title = None
     current_number = None
     intro_content = []
+    used_numbers = set()  # 用于记录已使用的章节号
     
     for line in cleaned_lines:
         # 查找章节标题
         number, title = get_chapter_info(line)
         if number is not None:
+            # 检查章节号是否已使用
+            if number in used_numbers:
+                # 如果章节号已使用，将内容添加到当前章节
+                if current_title:
+                    current_content.append(line)
+                continue
+                
+            used_numbers.add(number)  # 记录已使用的章节号
+            
             # 如果有内容简介，先保存为第一章
             if intro_content and not chapters:
                 chapters.append({
