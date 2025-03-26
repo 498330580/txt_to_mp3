@@ -161,6 +161,7 @@ def split_chapters(content):
     current_number = None
     intro_content = []
     used_numbers = set()  # 用于记录已使用的章节号
+    duplicate_chapters = []  # 用于记录重复的章节信息
     
     for line in cleaned_lines:
         # 查找章节标题
@@ -168,6 +169,12 @@ def split_chapters(content):
         if number is not None:
             # 检查章节号是否已使用
             if number in used_numbers:
+                # 记录重复章节信息
+                duplicate_chapters.append({
+                    'number': number,
+                    'title': title,
+                    'line_number': len(cleaned_lines[:cleaned_lines.index(line)]) + 1
+                })
                 # 如果章节号已使用，将内容添加到当前章节
                 if current_title:
                     current_content.append(line)
@@ -210,6 +217,14 @@ def split_chapters(content):
             'title': current_title,
             'content': '\n'.join(current_content)
         })
+    
+    # 如果有重复章节，打印提示信息
+    if duplicate_chapters:
+        print("\n检测到重复章节：")
+        for dup in duplicate_chapters:
+            print(f"章节号 {dup['number']} 在第 {dup['line_number']} 行重复出现")
+            print(f"重复章节标题：{dup['title']}")
+        print("重复章节的内容已合并到原章节中\n")
     
     return chapters
 
