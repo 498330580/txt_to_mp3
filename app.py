@@ -464,7 +464,8 @@ def start_merge_audio(chapters_per_file):
             stderr=subprocess.PIPE,
             text=True,
             bufsize=1,
-            universal_newlines=True
+            universal_newlines=True,
+            encoding='utf-8'  # 指定使用 UTF-8 编码
         )
         
         # 启动检查进程的线程
@@ -478,16 +479,24 @@ def start_merge_audio(chapters_per_file):
         return f"启动合并进程失败: {str(e)}", update_merged_files()
 
 def check_merge_process(process):
-    """检查合并进程是否完成"""
+    """检查合并进程并显示进度"""
     try:
-        # 等待进程完成
-        process.wait()
-        
-        # 检查返回码
-        if process.returncode == 0:
-            print("\n合并完成")
+        while True:
+            # 读取输出
+            output = process.stdout.readline()
+            if output:
+                print(output.strip())
+            
+            # 检查进程是否结束
+            if process.poll() is not None:
+                break
+                
+        # 获取返回码
+        return_code = process.poll()
+        if return_code == 0:
+            print("合并完成")
         else:
-            print("\n合并失败")
+            print("合并失败")
             
     except Exception as e:
         print(f"检查合并进程时出错: {str(e)}")
