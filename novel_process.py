@@ -1,9 +1,100 @@
 import os
 import re
+import json
+from typing import List, Tuple, Dict, Optional
 
-def get_base_path():
-    """获取项目基础路径"""
+def get_base_path() -> str:
+    """获取项目根目录"""
     return os.path.dirname(os.path.abspath(__file__))
+
+def chinese_to_arabic(chinese_str: str) -> int:
+    """将中文数字转换为阿拉伯数字"""
+    chinese_nums = {
+        '零': 0, '一': 1, '二': 2, '三': 3, '四': 4,
+        '五': 5, '六': 6, '七': 7, '八': 8, '九': 9,
+        '十': 10, '百': 100, '千': 1000, '万': 10000
+    }
+    
+    result = 0
+    temp = 0
+    
+    for char in chinese_str:
+        if char in chinese_nums:
+            num = chinese_nums[char]
+            if num >= 10:
+                if temp == 0:
+                    temp = 1
+                result += temp * num
+                temp = 0
+            else:
+                temp = num
+                
+    if temp > 0:
+        result += temp
+        
+    return result
+
+def traditional_to_arabic(traditional_str: str) -> int:
+    """将繁体数字转换为阿拉伯数字"""
+    traditional_nums = {
+        '零': 0, '壹': 1, '贰': 2, '叁': 3, '肆': 4,
+        '伍': 5, '陆': 6, '柒': 7, '捌': 8, '玖': 9,
+        '拾': 10, '佰': 100, '仟': 1000, '萬': 10000
+    }
+    
+    result = 0
+    temp = 0
+    
+    for char in traditional_str:
+        if char in traditional_nums:
+            num = traditional_nums[char]
+            if num >= 10:
+                if temp == 0:
+                    temp = 1
+                result += temp * num
+                temp = 0
+            else:
+                temp = num
+                
+    if temp > 0:
+        result += temp
+        
+    return result
+
+def load_chapter_patterns() -> List[Tuple[str, str]]:
+    """从配置文件加载章节识别模式"""
+    config_path = os.path.join(get_base_path(), "data", "config", "config.json")
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+            patterns = config.get('chapter_patterns', [])
+            return [(p['pattern'], p['description']) for p in patterns]
+    except Exception as e:
+        print(f"加载配置文件失败: {str(e)}")
+        # 返回默认模式
+        return [
+            (r'第([0-9零一二三四五六七八九十百千万]+)章.*', '数字/中文数字'),
+            (r'第([壹贰叁肆伍陆柒捌玖拾佰仟萬]+)章.*', '繁体数字'),
+            (r'^(\d+)章.*', '数字+章'),
+        ]
+
+def extract_chapter_number(title: str) -> Optional[int]:
+    """从章节标题中提取章节号"""
+    patterns = load_chapter_patterns()
+    for pattern, _ in patterns:
+        match = re.match(pattern, title)
+        if match:
+            num_str = match.group(1)
+            # 转换中文数字为阿拉伯数字
+            if any(c in num_str for c in '零一二三四五六七八九十百千万'):
+                return chinese_to_arabic(num_str)
+            # 转换繁体数字为阿拉伯数字
+            elif any(c in num_str for c in '壹贰叁肆伍陆柒捌玖拾佰仟萬'):
+                return traditional_to_arabic(num_str)
+            # 直接返回阿拉伯数字
+            else:
+                return int(num_str)
+    return None
 
 def get_novel_files():
     """获取导入目录下的所有txt文件"""
