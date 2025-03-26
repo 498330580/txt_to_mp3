@@ -48,6 +48,21 @@ jobs:
         # 复制数据目录结构
         xcopy /E /I data txt_to_mp3_release\data
         
+        # 创建并初始化 config 目录
+        mkdir txt_to_mp3_release\data\config
+        echo {
+        echo     "chapter_patterns": [
+        echo         {
+        echo             "pattern": "第([0-9零一二三四五六七八九十百千万]+)章.*",
+        echo             "description": "数字/中文数字"
+        echo         },
+        echo         {
+        echo             "pattern": "第([壹贰叁肆伍陆柒捌玖拾佰仟萬]+)章.*",
+        echo             "description": "繁体数字"
+        echo         }
+        echo     ]
+        echo } > txt_to_mp3_release\data\config\config.json
+        
         # 复制 ffmpeg
         xcopy /E /I ffmpeg txt_to_mp3_release\ffmpeg
         
@@ -64,6 +79,7 @@ jobs:
           - 改进文件打包结构，包含所有必要文件
           - 完善错误处理和日志记录
           - 优化视频生成功能
+          - 添加章节识别配置文件，支持自定义识别规则
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
