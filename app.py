@@ -333,31 +333,44 @@ def delete_novel_folder(evt: gr.SelectData, folder_type):
            else update_video_files())
 
 
-def process_videos(image_file):
-    """处理视频生成"""
+def process_videos():
+    """处理所有已上传封面的小说的视频生成"""
     global video_process
-    if image_file is None:
-        return "请选择视频封面图片"
-    
     try:
-        # 复制图片到临时目录
+        # 检查是否有已上传封面的小说
         base_path = get_base_path()
-        tmp_image = os.path.join(base_path, "data", "tmp", "cover.jpg")
-        os.makedirs(os.path.dirname(tmp_image), exist_ok=True)
-        shutil.copy2(image_file.name, tmp_image)
+        images_dir = os.path.join(base_path, "data", "images")
+        merge_dir = os.path.join(base_path, "data", "out_mp3_merge")
+        
+        if not os.path.exists(images_dir) or not os.path.exists(merge_dir):
+            return "请先上传小说封面图片"
+            
+        # 检查是否有已上传封面的小说
+        has_cover = False
+        for novel_dir in os.listdir(merge_dir):
+            if os.path.isdir(os.path.join(merge_dir, novel_dir)):
+                for ext in ['.jpg', '.jpeg', '.png']:
+                    if os.path.exists(os.path.join(images_dir, f"{novel_dir}{ext}")):
+                        has_cover = True
+                        break
+                if has_cover:
+                    break
+                    
+        if not has_cover:
+            return "请先为至少一本小说上传封面图片"
         
         # 获取Python解释器路径
         python_path = sys.executable
         
         # 启动新进程执行转换
-        cmd = f'"{python_path}" video_process_async.py "{tmp_image}"'
+        cmd = f'"{python_path}" video_process_async.py'
         video_process = subprocess.Popen(
             cmd,
             shell=True,
             stdout=None,
             stderr=None
         )
-        return "视频合成进程已启动"
+        return "视频合成进程已启动，将处理所有已上传封面的小说"
     except Exception as e:
         print(f"转换进程启动失败: {str(e)}")
         return f"转换进程启动失败: {str(e)}"
@@ -869,8 +882,8 @@ with gr.Blocks(title="小说文本转语音工具") as demo:
     
     # 生成视频
     video_btn.click(
-        fn=process_single_novel_video,
-        inputs=[novel_dropdown],
+        fn=process_videos,
+        inputs=[],
         outputs=video_output
     ).then(
         fn=update_video_files,
@@ -893,6 +906,13 @@ with gr.Blocks(title="小说文本转语音工具") as demo:
     delete_package_btn.click(
         fn=delete_package,
         outputs=[package_status, package_output]
+    )
+    
+    # 添加视频文件删除事件绑定
+    video_files.select(
+        fn=delete_novel_folder,
+        inputs=gr.State("mp4"),
+        outputs=[video_output, video_files]
     )
 
 if __name__ == "__main__":
