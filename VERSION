@@ -1,3 +1,8 @@
+Version 1.2.9 - 2025-03-19
+- 修复 GitHub Actions 打包问题
+- 优化发布包结构
+- 完善错误处理机制
+
 Version 1.2.7 - 2025-03-19
 - 优化 Docker 镜像构建和发布流程
 - 添加 Docker 镜像文件到 Release 发布包

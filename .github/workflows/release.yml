@@ -29,10 +29,9 @@ jobs:
     - name: Create Release Package
       run: |
         # 创建发布目录
-        mkdir txt_to_mp3_release
+        mkdir -Force txt_to_mp3_release
         
         # 复制主要文件
-        xcopy /E /I txt_mp3_python txt_to_mp3_release\txt_mp3_python
         copy app.py txt_to_mp3_release\
         copy novel_process.py txt_to_mp3_release\
         copy tts_process.py txt_to_mp3_release\
@@ -45,23 +44,12 @@ jobs:
         copy VERSION txt_to_mp3_release\
         copy SECURITY.md txt_to_mp3_release\
         
-        # 复制数据目录结构
-        xcopy /E /I data txt_to_mp3_release\data
+        # 创建数据目录结构
+        mkdir -Force txt_to_mp3_release\data
+        mkdir -Force txt_to_mp3_release\data\config
         
-        # 创建并初始化 config 目录
-        mkdir txt_to_mp3_release\data\config
-        echo {
-        echo     "chapter_patterns": [
-        echo         {
-        echo             "pattern": "第([0-9零一二三四五六七八九十百千万]+)章.*",
-        echo             "description": "数字/中文数字"
-        echo         },
-        echo         {
-        echo             "pattern": "第([壹贰叁肆伍陆柒捌玖拾佰仟萬]+)章.*",
-        echo             "description": "繁体数字"
-        echo         }
-        echo     ]
-        echo } > txt_to_mp3_release\data\config\config.json
+        # 创建配置文件
+        echo {"chapter_patterns":[{"pattern":"第([0-9零一二三四五六七八九十百千万]+)章.*","description":"数字/中文数字"},{"pattern":"第([壹贰叁肆伍陆柒捌玖拾佰仟萬]+)章.*","description":"繁体数字"}]} > txt_to_mp3_release\data\config\config.json
         
         # 复制 ffmpeg
         xcopy /E /I ffmpeg txt_to_mp3_release\ffmpeg
