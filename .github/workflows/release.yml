@@ -48,8 +48,8 @@ jobs:
         mkdir -Force txt_to_mp3_release\data
         mkdir -Force txt_to_mp3_release\data\config
         
-        # 创建配置文件
-        echo {"chapter_patterns":[{"pattern":"第([0-9零一二三四五六七八九十百千万]+)章.*","description":"数字/中文数字"},{"pattern":"第([壹贰叁肆伍陆柒捌玖拾佰仟萬]+)章.*","description":"繁体数字"}]} > txt_to_mp3_release\data\config\config.json
+        # 复制配置文件
+        copy data\config\config.json txt_to_mp3_release\data\config\config.json
         
         # 复制 ffmpeg
         xcopy /E /I ffmpeg txt_to_mp3_release\ffmpeg
