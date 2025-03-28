@@ -2,14 +2,19 @@ import gradio as gr
 import os
 import shutil
 import zipfile
-# import threading
-# import time
 from novel_process import process_novel
 from tts_process import process_tts, get_chinese_voices
 from video_process import process_novel_videos
 import subprocess
 import sys
 import threading
+import platform
+import json
+import re
+from typing import Optional, List, Dict, Any
+from datetime import datetime
+from merge_process import merge_audio_files
+from video_process_async import process_all_novels
 
 # 全局变量，用于控制转换过程
 conversion_running = False
@@ -22,20 +27,6 @@ merge_process = None  # 新增合并进程变量
 def get_base_path():
     """获取项目基础路径"""
     return os.path.dirname(os.path.abspath(__file__))
-
-# def ensure_directories():
-#     """确保所有必要的目录都存在"""
-#     base_path = get_base_path()
-#     directories = [
-#         os.path.join(base_path, "data", "out_mp3"),
-#         os.path.join(base_path, "data", "out_mp3_merge"),
-#         os.path.join(base_path, "data", "out_video"),
-#         # os.path.join(base_path, "data", "out_zip"),
-#         os.path.join(base_path, "data", "config")
-#     ]
-    
-#     for directory in directories:
-#         os.makedirs(directory, exist_ok=True)
 
 def format_rate(rate):
     """格式化语速值"""
