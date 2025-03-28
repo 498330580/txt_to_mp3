@@ -14,6 +14,58 @@ def get_ffmpeg_path():
     base_path = get_base_path()
     return os.path.join(base_path, "ffmpeg", "ffmpeg.exe")
 
+def check_hardware_acceleration() -> tuple[bool, str]:
+    """
+    检查系统是否支持硬件加速
+    
+    Returns:
+        tuple[bool, str]: (是否支持硬件加速, 编码器名称)
+    """
+    try:
+        # 获取ffmpeg版本信息
+        ffmpeg_path = get_ffmpeg_path()
+        
+        if not os.path.exists(ffmpeg_path):
+            return False, 'h264'
+        
+        # 检查硬件加速支持
+        try:
+            hwaccel_result = subprocess.run([ffmpeg_path, '-hide_banner', '-hwaccels'], 
+                                         capture_output=True, text=True,
+                                         creationflags=subprocess.CREATE_NO_WINDOW)
+            
+            if hwaccel_result.returncode == 0:
+                output = hwaccel_result.stdout.lower()
+                
+                # 检查NVIDIA GPU
+                if 'cuda' in output or 'nvenc' in output:
+                    print("使用NVIDIA显卡加速")
+                    return True, 'h264_nvenc'
+                
+                # 检查Intel GPU
+                if 'qsv' in output or 'intel' in output:
+                    print("使用Intel显卡加速")
+                    return True, 'h264_qsv'
+                
+                # 检查AMD GPU
+                if 'amf' in output:
+                    print("使用AMD显卡加速")
+                    return True, 'h264_amf'
+                
+                # 检查其他硬件加速
+                if 'dxva2' in output or 'd3d11va' in output:
+                    print("使用DXVA2/D3D11VA硬件加速")
+                    return True, 'h264_dxva2'
+                
+                print("未检测到显卡加速，使用CPU编码")
+        except Exception as e:
+            print("未检测到显卡加速，使用CPU编码")
+    
+    except Exception as e:
+        print("未检测到显卡加速，使用CPU编码")
+    
+    return False, 'h264'  # 默认使用CPU编码
+
 def create_video(mp3_path: str, image_path: str, output_path: str) -> Optional[str]:
     try:
         # 创建临时输出目录
@@ -27,14 +79,16 @@ def create_video(mp3_path: str, image_path: str, output_path: str) -> Optional[s
         width = 854  # 16:9 比例下的宽度
         height = 480
         
+        # 检测硬件加速
+        has_hw_accel, encoder = check_hardware_acceleration()
+        
+        # 构建基础ffmpeg命令
         cmd = [
             get_ffmpeg_path(),
             '-loop', '1',
             '-i', image_path,
             '-i', mp3_path,
-            '-c:v', 'h264',
-            '-preset', 'medium',
-            '-tune', 'stillimage',
+            '-c:v', encoder,
             '-c:a', 'aac',
             '-b:a', '192k',
             '-pix_fmt', 'yuv420p',
@@ -43,6 +97,43 @@ def create_video(mp3_path: str, image_path: str, output_path: str) -> Optional[s
             '-y',
             tmp_output
         ]
+        
+        # 根据不同的编码器添加不同的参数
+        if has_hw_accel:
+            if encoder == 'h264_nvenc':
+                cmd.extend([
+                    '-preset', 'p4',  # NVENC预设
+                    '-rc', 'vbr',     # 可变比特率
+                    '-cq', '19',      # 质量参数
+                    '-b:v', '5M'      # 视频比特率
+                ])
+            elif encoder == 'h264_qsv':
+                cmd.extend([
+                    '-preset', 'medium',
+                    '-global_quality', '19',
+                    '-b:v', '5M'
+                ])
+            elif encoder == 'h264_amf':
+                cmd.extend([
+                    '-quality', 'quality',
+                    '-rc', 'vbr',
+                    '-qp', '19',
+                    '-b:v', '5M'
+                ])
+            elif encoder == 'h264_dxva2':
+                cmd.extend([
+                    '-preset', 'medium',
+                    '-rc', 'vbr',
+                    '-qp', '19',
+                    '-b:v', '5M'
+                ])
+        else:
+            # CPU编码器参数
+            cmd.extend([
+                '-preset', 'medium',
+                '-tune', 'stillimage',
+                '-b:v', '5M'
+            ])
         
         # 使用 CREATE_NO_WINDOW 标志来隐藏控制台窗口
         startupinfo = None
