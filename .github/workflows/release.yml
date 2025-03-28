@@ -36,7 +36,6 @@ jobs:
         copy novel_process.py txt_to_mp3_release\
         copy tts_process.py txt_to_mp3_release\
         copy merge_process.py txt_to_mp3_release\
-        copy video_process.py txt_to_mp3_release\
         copy video_process_async.py txt_to_mp3_release\
         copy requirements.txt txt_to_mp3_release\
         copy README.md txt_to_mp3_release\
@@ -66,8 +65,9 @@ jobs:
           - 优化音频合并功能，支持临时目录处理
           - 改进文件打包结构，包含所有必要文件
           - 完善错误处理和日志记录
-          - 优化视频生成功能
+          - 优化视频生成功能，支持显卡加速（NVIDIA/Intel/AMD）
           - 添加章节识别配置文件，支持自定义识别规则
+          - 移除冗余代码，优化项目结构
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
