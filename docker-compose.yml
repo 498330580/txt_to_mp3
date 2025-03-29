@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  txt_to_mp3:
+    image: 498330580/txt_to_mp3:latest
+    container_name: txt_to_mp3
+    ports:
+      - "7860:7860"
+    volumes:
+      - ./data/import:/app/data/import
+      - ./data/out_text:/app/data/out_text
+      - ./data/out_mp3:/app/data/out_mp3
+      - ./data/out_mp3_merge:/app/data/out_mp3_merge
+      - ./data/out_mp4:/app/data/out_mp4
+      - ./data/images:/app/data/images
+      - ./data/tmp:/app/data/tmp
+      - ./data/config:/app/data/config
+    restart: unless-stopped 

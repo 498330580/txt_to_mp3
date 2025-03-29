@@ -90,11 +90,16 @@ python app.py
 #### 1. 环境准备
 
 1. 安装 Docker
-2. 拉取镜像
+2. 选择以下任一方式运行：
+
+##### 方式一：直接使用 Docker 命令
+
+1. 拉取镜像
 ```bash
 docker pull 498330580/txt_to_mp3:latest
 ```
-3. 运行容器
+
+2. 运行容器
 ```bash
 docker run -d \
   --name txt_to_mp3 \
@@ -106,17 +111,43 @@ docker run -d \
   -v %cd%/data/out_mp4:/app/data/out_mp4 \
   -v %cd%/data/images:/app/data/images \
   -v %cd%/data/tmp:/app/data/tmp \
+  -v %cd%/data/config:/app/data/config \
   498330580/txt_to_mp3:latest
 ```
-4. 访问界面
-    - 打开浏览器访问 http://localhost:7860
-5. 停止容器
+
+3. 访问界面
+   - 打开浏览器访问 http://localhost:7860
+
+4. 停止容器
 ```bash
 docker stop txt_to_mp3
 ```
-6. 删除容器
+
+5. 删除容器
 ```bash
 docker rm txt_to_mp3
+```
+
+##### 方式二：使用 Docker Compose（推荐）
+
+1. 下载 docker-compose.yml 文件到项目目录
+
+2. 运行容器
+```bash
+docker-compose up -d
+```
+
+3. 访问界面
+   - 打开浏览器访问 http://localhost:7860
+
+4. 停止容器
+```bash
+docker-compose down
+```
+
+5. 查看日志
+```bash
+docker-compose logs -f
 ```
 
 ### 使用步骤
