@@ -4,7 +4,7 @@ import shutil
 import zipfile
 from novel_process import process_novel
 from tts_process import process_tts, get_chinese_voices
-from video_process import process_novel_videos
+from video_process_async import process_novel_videos
 import subprocess
 import sys
 import threading
