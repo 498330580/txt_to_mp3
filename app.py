@@ -951,4 +951,4 @@ with gr.Blocks(title="小说文本转语音工具") as demo:
         )
 
 if __name__ == "__main__":
-    demo.launch(share=False)
+    demo.launch(share=False, server_name="0.0.0.0", server_port=7860)
