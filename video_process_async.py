@@ -89,8 +89,7 @@ def create_video(mp3_path: str, image_path: str, output_path: str) -> Optional[s
             '-i', image_path,
             '-i', mp3_path,
             '-c:v', encoder,
-            '-c:a', 'aac',
-            '-b:a', '192k',
+            '-c:a', 'copy',  # 直接复制音频流
             '-pix_fmt', 'yuv420p',
             '-shortest',
             '-s', f'{width}x{height}',
@@ -105,34 +104,36 @@ def create_video(mp3_path: str, image_path: str, output_path: str) -> Optional[s
                     '-preset', 'p4',  # NVENC预设
                     '-rc', 'vbr',     # 可变比特率
                     '-cq', '19',      # 质量参数
-                    '-b:v', '5M'      # 视频比特率
+                    '-b:v', '0',      # 使用CRF模式
+                    '-crf', '30'      # CRF值
                 ])
             elif encoder == 'h264_qsv':
                 cmd.extend([
                     '-preset', 'medium',
-                    '-global_quality', '19',
-                    '-b:v', '5M'
+                    '-global_quality', '30',
+                    '-b:v', '0'
                 ])
             elif encoder == 'h264_amf':
                 cmd.extend([
                     '-quality', 'quality',
                     '-rc', 'vbr',
-                    '-qp', '19',
-                    '-b:v', '5M'
+                    '-qp', '30',
+                    '-b:v', '0'
                 ])
             elif encoder == 'h264_dxva2':
                 cmd.extend([
                     '-preset', 'medium',
                     '-rc', 'vbr',
-                    '-qp', '19',
-                    '-b:v', '5M'
+                    '-qp', '30',
+                    '-b:v', '0'
                 ])
         else:
             # CPU编码器参数
             cmd.extend([
                 '-preset', 'medium',
                 '-tune', 'stillimage',
-                '-b:v', '5M'
+                '-b:v', '0',
+                '-crf', '30'
             ])
         
         # 使用 CREATE_NO_WINDOW 标志来隐藏控制台窗口
