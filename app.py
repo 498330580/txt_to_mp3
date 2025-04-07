@@ -109,13 +109,6 @@ def stop_conversion():
         print(f"停止进程失败: {str(e)}")
         return f"停止进程失败: {str(e)}"
     return "没有正在运行的转换进程"
-    try:
-        chapter_count = process_tts(voice, format_rate(rate))
-        print(f"已转换 {chapter_count} 个章节的语音")
-        return f"语音转换完成，共转换 {chapter_count} 个章节"
-    except Exception as e:
-        print(f"转换过程出错: {str(e)}")
-        return f"转换过程出错: {str(e)}"
 
 # 删除 stop_conversion 函数
 def package_audio():

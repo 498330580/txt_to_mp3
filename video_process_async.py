@@ -26,7 +26,7 @@ def check_hardware_acceleration() -> tuple[bool, str]:
         ffmpeg_path = get_ffmpeg_path()
         
         if not os.path.exists(ffmpeg_path):
-            return False, 'h264'
+            return False, 'libvpx-vp9'
         
         # 检查硬件加速支持
         try:
@@ -40,22 +40,22 @@ def check_hardware_acceleration() -> tuple[bool, str]:
                 # 检查NVIDIA GPU
                 if 'cuda' in output or 'nvenc' in output:
                     print("使用NVIDIA显卡加速")
-                    return True, 'h264_nvenc'
+                    return True, 'vp9_nvenc'
                 
                 # 检查Intel GPU
                 if 'qsv' in output or 'intel' in output:
                     print("使用Intel显卡加速")
-                    return True, 'h264_qsv'
+                    return True, 'vp9_qsv'
                 
                 # 检查AMD GPU
                 if 'amf' in output:
                     print("使用AMD显卡加速")
-                    return True, 'h264_amf'
+                    return True, 'vp9_amf'
                 
                 # 检查其他硬件加速
                 if 'dxva2' in output or 'd3d11va' in output:
                     print("使用DXVA2/D3D11VA硬件加速")
-                    return True, 'h264_dxva2'
+                    return True, 'vp9_dxva2'
                 
                 print("未检测到显卡加速，使用CPU编码")
         except Exception as e:
@@ -64,7 +64,7 @@ def check_hardware_acceleration() -> tuple[bool, str]:
     except Exception as e:
         print("未检测到显卡加速，使用CPU编码")
     
-    return False, 'h264'  # 默认使用CPU编码
+    return False, 'libvpx-vp9'  # 默认使用CPU编码
 
 def create_video(mp3_path: str, image_path: str, output_path: str) -> Optional[str]:
     try:
@@ -91,7 +91,8 @@ def create_video(mp3_path: str, image_path: str, output_path: str) -> Optional[s
             '-c:v', 'libvpx-vp9',  # 使用 VP9 编码器
             '-b:v', '0',           # 设置比特率为0，使用CRF模式
             '-crf', '30',          # 设置CRF值为30
-            '-c:a', 'copy',        # 直接复制音频流
+            '-c:a', 'libopus',     # 使用opus音频编码器
+            '-b:a', '128k',        # 设置音频比特率
             '-pix_fmt', 'yuv420p',
             '-shortest',
             '-s', f'{width}x{height}',
@@ -102,39 +103,53 @@ def create_video(mp3_path: str, image_path: str, output_path: str) -> Optional[s
         
         # 根据不同的编码器添加不同的参数
         if has_hw_accel:
-            if encoder == 'h264_nvenc':
+            if encoder == 'vp9_nvenc':
                 cmd.extend([
-                    '-preset', 'p4',  # NVENC预设
-                    '-rc', 'vbr',     # 可变比特率
-                    '-cq', '19',      # 质量参数
-                    '-b:v', '5M'      # 视频比特率
+                    '-preset', 'p4',      # NVENC预设
+                    '-rc', 'vbr',         # 可变比特率
+                    '-cq', '19',          # 质量参数
+                    '-b:v', '5M',         # 视频比特率
+                    '-row-mt', '1',       # 启用行级多线程
+                    '-tile-columns', '6',  # 设置并行处理的列数
+                    '-frame-parallel', '1' # 启用帧级并行处理
                 ])
-            elif encoder == 'h264_qsv':
+            elif encoder == 'vp9_qsv':
                 cmd.extend([
                     '-preset', 'medium',
                     '-global_quality', '19',
-                    '-b:v', '5M'
+                    '-b:v', '5M',
+                    '-row-mt', '1',
+                    '-tile-columns', '6',
+                    '-frame-parallel', '1'
                 ])
-            elif encoder == 'h264_amf':
+            elif encoder == 'vp9_amf':
                 cmd.extend([
                     '-quality', 'quality',
                     '-rc', 'vbr',
                     '-qp', '19',
-                    '-b:v', '5M'
+                    '-b:v', '5M',
+                    '-row-mt', '1',
+                    '-tile-columns', '6',
+                    '-frame-parallel', '1'
                 ])
-            elif encoder == 'h264_dxva2':
+            elif encoder == 'vp9_dxva2':
                 cmd.extend([
                     '-preset', 'medium',
                     '-rc', 'vbr',
                     '-qp', '19',
-                    '-b:v', '5M'
+                    '-b:v', '5M',
+                    '-row-mt', '1',
+                    '-tile-columns', '6',
+                    '-frame-parallel', '1'
                 ])
         else:
             # CPU编码器参数
             cmd.extend([
-                '-preset', 'medium',
-                '-tune', 'stillimage',
-                '-b:v', '5M'
+                '-deadline', 'realtime',  # 最快的编码速度
+                '-cpu-used', '8',         # CPU使用级别，8是最快的
+                '-row-mt', '1',           # 启用行级多线程
+                '-tile-columns', '6',     # 设置并行处理的列数
+                '-frame-parallel', '1'    # 启用帧级并行处理
             ])
         
         # 使用 CREATE_NO_WINDOW 标志来隐藏控制台窗口
