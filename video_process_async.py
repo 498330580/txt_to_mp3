@@ -88,12 +88,14 @@ def create_video(mp3_path: str, image_path: str, output_path: str) -> Optional[s
             '-loop', '1',
             '-i', image_path,
             '-i', mp3_path,
-            '-c:v', encoder,
-            '-c:a', 'aac',
-            '-b:a', '192k',
+            '-c:v', 'libvpx-vp9',  # 使用 VP9 编码器
+            '-b:v', '0',           # 设置比特率为0，使用CRF模式
+            '-crf', '30',          # 设置CRF值为30
+            '-c:a', 'copy',        # 直接复制音频流
             '-pix_fmt', 'yuv420p',
             '-shortest',
             '-s', f'{width}x{height}',
+            '-vf', 'setpts=PTS/1,fps=1',  # 设置帧率为1fps
             '-y',
             tmp_output
         ]
