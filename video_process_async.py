@@ -88,11 +88,8 @@ def create_video(mp3_path: str, image_path: str, output_path: str) -> Optional[s
             '-loop', '1',
             '-i', image_path,
             '-i', mp3_path,
-            '-c:v', 'libvpx-vp9',  # 使用 VP9 编码器
-            '-b:v', '0',           # 设置比特率为0，使用CRF模式
-            '-crf', '30',          # 设置CRF值为30
-            '-c:a', 'libopus',     # 使用opus音频编码器
-            '-b:a', '128k',        # 设置音频比特率
+            '-c:v', encoder,
+            '-c:a', 'copy',  # 直接复制音频流
             '-pix_fmt', 'yuv420p',
             '-shortest',
             '-s', f'{width}x{height}',
@@ -105,51 +102,39 @@ def create_video(mp3_path: str, image_path: str, output_path: str) -> Optional[s
         if has_hw_accel:
             if encoder == 'vp9_nvenc':
                 cmd.extend([
-                    '-preset', 'p4',      # NVENC预设
-                    '-rc', 'vbr',         # 可变比特率
-                    '-cq', '19',          # 质量参数
-                    '-b:v', '5M',         # 视频比特率
-                    '-row-mt', '1',       # 启用行级多线程
-                    '-tile-columns', '6',  # 设置并行处理的列数
-                    '-frame-parallel', '1' # 启用帧级并行处理
+                    '-preset', 'p4',  # NVENC预设
+                    '-rc', 'vbr',     # 可变比特率
+                    '-cq', '19',      # 质量参数
+                    '-b:v', '0',      # 使用CRF模式
+                    '-crf', '30'      # CRF值
                 ])
             elif encoder == 'vp9_qsv':
                 cmd.extend([
                     '-preset', 'medium',
-                    '-global_quality', '19',
-                    '-b:v', '5M',
-                    '-row-mt', '1',
-                    '-tile-columns', '6',
-                    '-frame-parallel', '1'
+                    '-global_quality', '30',
+                    '-b:v', '0'
                 ])
             elif encoder == 'vp9_amf':
                 cmd.extend([
                     '-quality', 'quality',
                     '-rc', 'vbr',
-                    '-qp', '19',
-                    '-b:v', '5M',
-                    '-row-mt', '1',
-                    '-tile-columns', '6',
-                    '-frame-parallel', '1'
+                    '-qp', '30',
+                    '-b:v', '0'
                 ])
             elif encoder == 'vp9_dxva2':
                 cmd.extend([
                     '-preset', 'medium',
                     '-rc', 'vbr',
-                    '-qp', '19',
-                    '-b:v', '5M',
-                    '-row-mt', '1',
-                    '-tile-columns', '6',
-                    '-frame-parallel', '1'
+                    '-qp', '30',
+                    '-b:v', '0'
                 ])
         else:
             # CPU编码器参数
             cmd.extend([
-                '-deadline', 'realtime',  # 最快的编码速度
-                '-cpu-used', '8',         # CPU使用级别，8是最快的
-                '-row-mt', '1',           # 启用行级多线程
-                '-tile-columns', '6',     # 设置并行处理的列数
-                '-frame-parallel', '1'    # 启用帧级并行处理
+                '-preset', 'medium',
+                '-tune', 'stillimage',
+                '-b:v', '0',
+                '-crf', '30'
             ])
         
         # 使用 CREATE_NO_WINDOW 标志来隐藏控制台窗口
