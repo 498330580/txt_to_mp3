@@ -86,7 +86,6 @@ docker-compose up -d
 - ⭐ 在 GitHub 上给项目点个 Star
 - 🍴 Fork 项目并贡献代码
 - 💬 在使用中提出宝贵意见
-```
 
 
 ## 🙏 赞助支持
