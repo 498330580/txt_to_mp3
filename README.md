@@ -1,6 +1,3 @@
-我来帮你优化README.md文件的格式，添加emoji使其更加清晰易读：
-
-```markdown:f:\github\txt_to_mp3\README.md
 # 📚 小说文本转语音工具
 
 ✨ **Version: 1.4.0** ✨
@@ -37,7 +34,7 @@ txt_to_mp3/
     ├── 📂 out_mp4/       # 生成的视频文件
     ├── 📂 images/        # 视频封面图片
     └── 📂 tmp/          # 临时文件目录
-```
+
 
 ## 🚀 使用方法
 
