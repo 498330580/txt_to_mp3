@@ -14,128 +14,44 @@ def get_ffmpeg_path():
     base_path = get_base_path()
     return os.path.join(base_path, "ffmpeg", "ffmpeg.exe")
 
-def check_hardware_acceleration() -> tuple[bool, str]:
-    """
-    检查系统是否支持硬件加速
-    
-    Returns:
-        tuple[bool, str]: (是否支持硬件加速, 编码器名称)
-    """
-    try:
-        # 获取ffmpeg版本信息
-        ffmpeg_path = get_ffmpeg_path()
-        
-        if not os.path.exists(ffmpeg_path):
-            return False, 'libvpx-vp9'
-        
-        # 检查硬件加速支持
-        try:
-            hwaccel_result = subprocess.run([ffmpeg_path, '-hide_banner', '-hwaccels'], 
-                                         capture_output=True, text=True,
-                                         creationflags=subprocess.CREATE_NO_WINDOW)
-            
-            if hwaccel_result.returncode == 0:
-                output = hwaccel_result.stdout.lower()
-                
-                # 检查NVIDIA GPU
-                if 'cuda' in output or 'nvenc' in output:
-                    print("使用NVIDIA显卡加速")
-                    return True, 'h264_nvenc'
-                
-                # 检查Intel GPU
-                if 'qsv' in output or 'intel' in output:
-                    print("使用Intel显卡加速")
-                    return True, 'h264_qsv'
-                
-                # 检查AMD GPU
-                if 'amf' in output:
-                    print("使用AMD显卡加速")
-                    return True, 'h264_amf'
-                
-                # 检查其他硬件加速
-                if 'dxva2' in output or 'd3d11va' in output:
-                    print("使用DXVA2/D3D11VA硬件加速")
-                    return True, 'h264_dxva2'
-                
-                print("未检测到显卡加速，使用CPU编码")
-        except Exception as e:
-            print("未检测到显卡加速，使用CPU编码")
-    
-    except Exception as e:
-        print("未检测到显卡加速，使用CPU编码")
-    
-    return False, 'libvpx-vp9'  # 默认使用CPU编码
 
 def create_video(mp3_path: str, image_path: str, output_path: str) -> Optional[str]:
+    # 创建临时输出目录
+    tmp_dir = os.path.join(os.path.dirname(output_path), "tmp")
+    os.makedirs(tmp_dir, exist_ok=True)
+    
+    # 创建临时视频文件路径（第一步生成的无声视频）
+    tmp_video = os.path.join(tmp_dir, "temp_silent_video.mp4")
+    tmp_output = os.path.join(tmp_dir, os.path.basename(output_path))
     try:
-        # 创建临时输出目录
-        tmp_dir = os.path.join(os.path.dirname(output_path), "tmp")
-        os.makedirs(tmp_dir, exist_ok=True)
         
-        # 创建临时输出文件路径
-        tmp_output = os.path.join(tmp_dir, os.path.basename(output_path))
         
-        # 计算480p分辨率
-        width = 854  # 16:9 比例下的宽度
-        height = 480
-        
-        # 检测硬件加速
-        has_hw_accel, encoder = check_hardware_acceleration()
-        
-        # 构建基础ffmpeg命令
-        cmd = [
+        # 第一步：将图片转换为视频
+        # 参照: ffmpeg.exe -loop 1 -r 23 -t 120 -f image2 -i "图片路径" -c:v libx264 -crf 24 -y 输出视频.mp4
+        cmd1 = [
             get_ffmpeg_path(),
             '-loop', '1',
+            '-r', '23',  # 设置为1帧每秒，降低文件大小
+            '-t', '120',
+            '-f', 'image2',
             '-i', image_path,
+            '-c:v', 'libx264',  # 使用libx264编码器，确保兼容性
+            '-crf', '24',       # 较高的CRF值，降低质量和文件大小
+            '-y',
+            tmp_video
+        ]
+        
+        # 第二步：合并视频和音频
+        # 参照: ffmpeg.exe -i 输出视频.mp4 -i 音频.mp3 -c:v copy -c:a copy -y 最终视频.mp4
+        cmd2 = [
+            get_ffmpeg_path(),
+            '-i', tmp_video,
             '-i', mp3_path,
-            '-c:v', encoder,
-            '-c:a', 'copy',  # 直接复制音频流
-            '-pix_fmt', 'yuv420p',
-            '-shortest',
-            '-s', f'{width}x{height}',
-            '-vf', 'setpts=PTS/1,fps=1',  # 设置帧率为1fps
+            '-c:v', 'copy',
+            '-c:a', 'copy',
             '-y',
             tmp_output
         ]
-        
-        # 根据不同的编码器添加不同的参数
-        if has_hw_accel:
-            if encoder == 'h264_nvenc':
-                cmd.extend([
-                    '-preset', 'p4',  # NVENC预设
-                    '-rc', 'vbr',     # 可变比特率
-                    '-cq', '19',      # 质量参数
-                    '-b:v', '0',      # 使用CRF模式
-                    '-crf', '30'      # CRF值
-                ])
-            elif encoder == 'h264_qsv':
-                cmd.extend([
-                    '-preset', 'medium',
-                    '-global_quality', '30',
-                    '-b:v', '0'
-                ])
-            elif encoder == 'h264_amf':
-                cmd.extend([
-                    '-quality', 'quality',
-                    '-rc', 'vbr',
-                    '-qp', '30',
-                    '-b:v', '0'
-                ])
-            elif encoder == 'h264_dxva2':
-                cmd.extend([
-                    '-preset', 'medium',
-                    '-rc', 'vbr',
-                    '-qp', '30',
-                    '-b:v', '0'
-                ])
-        else:
-            # CPU编码器参数
-            cmd.extend([
-                '-preset', 'medium',
-                '-tune', 'stillimage',
-                '-b:v', '0',
-                '-crf', '30'
-            ])
         
         # 使用 CREATE_NO_WINDOW 标志来隐藏控制台窗口
         startupinfo = None
@@ -143,9 +59,10 @@ def create_video(mp3_path: str, image_path: str, output_path: str) -> Optional[s
             startupinfo = subprocess.STARTUPINFO()
             startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
         
-        # 执行命令，使用 utf-8 编码
-        process = subprocess.Popen(
-            cmd,
+        # 执行第一个命令：生成无声视频
+        print(f"正在生成临时视频...")
+        process1 = subprocess.Popen(
+            cmd1,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             startupinfo=startupinfo,
@@ -154,13 +71,37 @@ def create_video(mp3_path: str, image_path: str, output_path: str) -> Optional[s
         )
         
         # 等待处理完成
-        stdout, stderr = process.communicate()
+        stdout1, stderr1 = process1.communicate()
         
-        if process.returncode != 0:
+        if process1.returncode != 0:
+            # 如果失败，清理临时文件
+            if os.path.exists(tmp_video):
+                os.remove(tmp_video)
+            return f"临时视频生成失败: {stderr1}"
+        
+        # 执行第二个命令：合并音频和视频
+        print(f"正在合并音频...")
+        process2 = subprocess.Popen(
+            cmd2,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            startupinfo=startupinfo,
+            encoding='utf-8',
+            errors='ignore'
+        )
+        
+        # 等待处理完成
+        stdout2, stderr2 = process2.communicate()
+        
+        # 删除临时视频文件
+        if os.path.exists(tmp_video):
+            os.remove(tmp_video)
+        
+        if process2.returncode != 0:
             # 如果失败，清理临时文件
             if os.path.exists(tmp_output):
                 os.remove(tmp_output)
-            return f"视频合成失败: {stderr}"
+            return f"音视频合并失败: {stderr2}"
         
         # 确保输出目录存在
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -172,6 +113,8 @@ def create_video(mp3_path: str, image_path: str, output_path: str) -> Optional[s
         
     except Exception as e:
         # 确保清理临时文件
+        if 'tmp_video' in locals() and os.path.exists(tmp_video):
+            os.remove(tmp_video)
         if 'tmp_output' in locals() and os.path.exists(tmp_output):
             os.remove(tmp_output)
         return f"视频合成出错: {str(e)}"
@@ -209,9 +152,8 @@ def process_novel_videos(novel_name: str) -> tuple[int, Optional[str]]:
     
     if not os.path.exists(merge_dir):
         return 0, f"找不到合并音频目录: {novel_name}"
-    
+    processed_count = 0
     try:
-        processed_count = 0
         total_files = len([f for f in os.listdir(merge_dir) if f.endswith('.mp3')])
         
         for mp3_file in os.listdir(merge_dir):
@@ -249,9 +191,8 @@ def process_all_novels() -> tuple[int, Optional[str]]:
     
     if not os.path.exists(merge_dir):
         return 0, "找不到合并音频目录"
-    
+    total_processed = 0
     try:
-        total_processed = 0
         novel_dirs = [d for d in os.listdir(merge_dir) if os.path.isdir(os.path.join(merge_dir, d))]
         
         for novel_name in novel_dirs:
